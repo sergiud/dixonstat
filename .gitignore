@@ -1,0 +1,3 @@
+*.orig
+*.py[cod]
+__pycache__/
