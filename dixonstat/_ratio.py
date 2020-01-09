@@ -18,6 +18,8 @@ from functools import partial
 from scipy.optimize import brentq
 from scipy.special import gammaln
 from scipy.stats import norm
+from scipy.linalg import eigh_tridiagonal
+from scipy.linalg import solve_banded
 import numpy as np
 
 def _apply1d(func, data):
@@ -56,9 +58,7 @@ def cost_F(i, gamma, g):
         ((y - 1) / 3 - g_cur - g_prev) * (y / 12 + g_cur) ** 2 - \
         ((y / 6 - g_cur) ** 2 - gamma ** 2 / 16) ** 2
 
-    FF = np.concatenate((F, [0]))
-
-    return FF, np.dot(FF, FF)
+    return F, np.dot(F, F)
 
 
 def jac_dF_dg_prev(i, gamma, g):
@@ -92,100 +92,6 @@ def jac_dF_dg_cur(i, gamma, g):
         ((y - 1) / 3 - g_cur - g_prev) * (y / 12 + g_cur) ** 2 + \
         2 * ((y / 6 - g_cur) ** 2 - gamma * gamma / 16) * 2 * (y / 6 - g_cur)
 
-def tdma(a, b, c, d):
-    c[0] = c[0] / b[0]
-    d[0] = d[0] / b[0]
-
-    n = len(a)
-
-    for i in range(1, n):
-        den = (b[i] - c[i - 1] * a[i])
-        c[i] = c[i] / den
-        d[i] = (d[i] - d[i - 1] * a[i]) / den
-
-    x = np.zeros_like(d)
-
-    # Back substitution
-    for i in reversed(range(n)):
-        if i == n - 1:
-            x[i] = d[i]
-        else:
-            x[i] = d[i] - c[i] * x[i + 1]
-
-    return x
-
-
-def tqli(d, sub, return_eigenvectors=True, eps=1e-14):
-    n = len(d)
-
-    if len(sub) != n - 1:
-        raise ValueError('incorrect subdiagonal vector size')
-
-    e = np.concatenate((sub, [0.0]))
-
-    if return_eigenvectors:
-        z = np.eye(n)
-
-    for l in range(n):
-        iter = 0
-        idxs = np.arange(l, n - 1)
-
-        while True:
-            dd = np.abs(d[idxs]) + np.abs(d[idxs + 1])
-            mask = ~(np.abs(e[l:-1]) > eps * dd)
-            a, = np.where(mask)
-
-            m = n - 1 if a.size == 0 else idxs[a[0]]
-
-            if m != l:
-                iter = iter + 1
-
-                g = (d[l + 1] - d[l]) / (2.0 * e[l])
-                r = np.hypot(g, 1.0)
-                g = d[m] - d[l] + e[l] / (g + r * np.sign(g))
-                s = 1.0
-                c = 1.0
-                p = 0.0
-
-                for i in reversed(range(l, m)):
-                    f = s * e[i]
-                    b = c * e[i]
-                    r = np.hypot(f, g)
-                    e[i + 1] = r
-
-                    if r == 0.0:
-                        d[i + 1] -= p
-                        e[m] = 0
-                        break
-
-                    s = f / r
-                    c = g / r
-                    g = d[i + 1] - p
-                    r = (d[i] - g) * s + 2.0 * c * b
-                    p = s * r
-                    d[i + 1] = g + p
-                    g = c * r - b
-
-                    if return_eigenvectors:
-                        f = np.copy(z[:, i + 1])
-                        z[:, i + 1] = s * z[:, i] + c * f
-                        z[:, i] = c * z[:, i] - s * f
-
-                if r == 0.0 and i >= 1:
-                    continue
-
-                d[l] -= p
-                e[l] = g
-                e[m] = 0
-            else:
-                break
-
-    if return_eigenvectors:
-        return d, z
-
-    return d
-
-
 def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
     idxs = np.arange(n)
 
@@ -202,9 +108,10 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
         c_coeffs = jac_dF_dg_next(idxs, gamma, g)
 
         a_coeffs[:2] = 0
+        banded = np.vstack((a_coeffs[1:], b_coeffs[1:], c_coeffs[1:]))
 
-        delta = tdma(a_coeffs[1:], b_coeffs[1:], c_coeffs[1:], f[1:])
-        g[1:-1] -= delta
+        delta = solve_banded((1, 1), banded, f[1:])
+        g[1:-2] -= delta
 
         f, f_error = cost_F(idxs, gamma, g)
 
@@ -223,19 +130,9 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
     # Coefficients on the subdiagonal
     s = np.sqrt(beta[1:])
 
-    # Compute the eigenvalues and the eigenvectors
-    eval, evec = tqli(alpha, s)
-
-    # Sort the eigenvalues and the corresponding eigenvectors in ascending
-    # order.
-    sorted_idxs = np.argsort(eval)
-    eval = eval[sorted_idxs]
-    evec = evec[..., sorted_idxs]
-
-    # Rowwise sum of squared eigenvector matrix coefficients
-    norm = np.sum(np.square(evec), axis=0)
-
-    evec /= np.tile(np.atleast_2d(norm).T, (1, evec.shape[1]))
+    # Compute the eigenvalues and the eigenvectors. Eigenvectors are already
+    # sorted and normalized.
+    eval, evec = eigh_tridiagonal(alpha, s)
 
     # Gaussian weights
     weights = beta[0] * np.square(evec[0, :])
