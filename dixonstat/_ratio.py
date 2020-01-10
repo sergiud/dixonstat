@@ -115,8 +115,8 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
 
         f, f_error = cost_F(idxs, gamma, g)
 
-    alpha = np.zeros_like(a_coeffs)
-    beta = np.zeros_like(alpha)
+    alpha = np.empty_like(a_coeffs)
+    beta = np.empty_like(alpha)
 
     alpha[0] = np.exp(gammaln(1 + gamma / 2)) / \
         np.exp(gammaln((1 + gamma) / 2))
@@ -192,12 +192,12 @@ class RangeRatio:
         nhh = hgh_order
 
         nvec = nhh * nfh
-        t = np.zeros(nvec)
-        u = np.zeros(nvec)
-        x = np.zeros(nvec)
-        w = np.zeros(nvec)
-        z = np.zeros(nvec)
-        c2 = np.zeros(nvec)
+        t = np.empty(nvec)
+        u = np.empty(nvec)
+        x = np.empty(nvec)
+        w = np.empty(nvec)
+        z = np.empty(nvec)
+        c2 = np.empty(nvec)
 
         xhh, whh = half_hermgauss(nhh)
         xfh, wfh = np.polynomial.hermite.hermgauss(nfh)
