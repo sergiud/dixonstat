@@ -250,19 +250,6 @@ class RangeRatio:
 
         self.factor = factor
 
-    def __single_pdf(self, r):
-        factor = np.reciprocal(np.sqrt(1.0 + np.square(r)))
-        f = (1.0 + r) * 2.0 * factor * self.sqrt1_3
-
-        v = self.t * factor * self.sqrt2
-        c1 = self.Phi(self.x - v)
-        c3 = self.Phi(self.x - r * v)
-        g = c1**(self.i - 1) * (c3 - c1)**(self.size -
-                                           self.j - self.i - 1) * (self.c2 - c3)**(self.j - 1)
-        density = self.w * v * np.exp(f * self.z) * g
-
-        return np.sum(density) * factor * self.factor * self.sqrt4_3
-
     def pdf(self, r):
         R"""Computes the probability density function (PDF) of the distribution.
 
@@ -293,13 +280,16 @@ class RangeRatio:
         numpy.ndarray
             The PDF at the specified value.
         """
-        return _apply1d(self.__single_pdf, r)
+        factor = np.reciprocal(np.sqrt(1.0 + np.square(r)))
+        f = (1.0 + r) * 2.0 * factor * self.sqrt1_3
 
-    def __single_cdf(self, R):
-        pr = self.pdf(0.5 * R * (self.xgl + 1))
-        cdf = self.wgl * pr
+        v = self.t[..., np.newaxis, np.newaxis] * factor * self.sqrt2
+        c1 = self.Phi(self.x[..., np.newaxis, np.newaxis] - v)
+        c3 = self.Phi(self.x[..., np.newaxis, np.newaxis] - r * v)
+        g = c1**(self.i - 1) * (c3 - c1)**(self.size - self.j - self.i - 1) * (self.c2[..., np.newaxis, np.newaxis] - c3)**(self.j - 1)
+        density = self.w[..., np.newaxis, np.newaxis] * v * np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
 
-        return np.sum(cdf) * R * 0.5
+        return np.sum(density, axis=0) * factor * self.factor * self.sqrt4_3
 
     def cdf(self, R):
         R"""The cumulative distribution function.
@@ -314,7 +304,22 @@ class RangeRatio:
             \text{for}~0\leq r\leq 1
         """
 
-        return _apply1d(self.__single_cdf, R)
+        # Save the shape such that we can return a tensor of CDF values with
+        # the same shape.
+        shape = np.shape(R)
+        R = np.atleast_2d(R)
+
+        # For each ratio, we have multiple weights.
+        half_R = R * 0.5
+        # Quadrature nodes
+        prob = self.pdf(np.atleast_3d(half_R * (np.atleast_2d(self.xgl + 1).T)).T)
+        weighted_prob = np.squeeze(self.wgl * prob, axis=0).T
+        # Summing over the weighted probabilities results in the integral from
+        # 0 to R (i.e., each ratio).
+        cdf = np.sum(weighted_prob, axis=0) * half_R
+
+        # Restore the shape of input parameter R.
+        return np.reshape(cdf, shape)
 
     def __ppf_err(self, R, q):
         return q - self.cdf(R)
