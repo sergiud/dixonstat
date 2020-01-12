@@ -55,11 +55,10 @@ def cost_F(i, gamma, g):
     g_cur = g[i]
     g_next = g[i + 1]
 
-    F = ((y + 1) / 3 - g_next - g_cur) * \
+    # Eq. 3.14
+    return ((y + 1) / 3 - g_next - g_cur) * \
         ((y - 1) / 3 - g_cur - g_prev) * (y / 12 + g_cur) ** 2 - \
         ((y / 6 - g_cur) ** 2 - gamma ** 2 / 16) ** 2
-
-    return F, np.dot(F, F)
 
 
 def jac_dF_dg_prev(i, gamma, g):
@@ -97,24 +96,28 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
     idxs = np.arange(n)
 
     g = estimate_g(idxs, gamma)
-    f, f_error = cost_F(idxs, gamma, g)
 
     it = 0
 
-    while f_error > eps and it < n_iter:
-        it = it + 1
+    # Refine g using Newton's method.
+    while it < n_iter:
+        residual = cost_F(idxs, gamma, g)
+
+        if np.dot(residual, residual) < eps:
+            break
 
         a_coeffs = jac_dF_dg_prev(idxs, gamma, g)
         b_coeffs = jac_dF_dg_cur(idxs, gamma, g)
         c_coeffs = jac_dF_dg_next(idxs, gamma, g)
 
         a_coeffs[:2] = 0
-        banded = np.vstack((a_coeffs[1:], b_coeffs[1:], c_coeffs[1:]))
+        # Tridiagonal Jacobian w.r.t g_{n-1}, g_n, and g_{n+1}.
+        J = np.vstack((a_coeffs[1:], b_coeffs[1:], c_coeffs[1:]))
 
-        delta = solve_banded((1, 1), banded, f[1:])
+        delta = solve_banded((1, 1), J, residual[1:])
         g[1:-2] -= delta
 
-        f, f_error = cost_F(idxs, gamma, g)
+        it = it + 1
 
     alpha = np.empty_like(a_coeffs)
     beta = np.empty_like(alpha)
