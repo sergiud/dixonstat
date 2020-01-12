@@ -15,11 +15,12 @@
 # limitations under the License.
 
 from functools import partial
-from scipy.optimize import brentq
-from scipy.special import gammaln
-from scipy.stats import norm
 from scipy.linalg import eigh_tridiagonal
 from scipy.linalg import solve_banded
+from scipy.optimize import brentq
+from scipy.special import factorial
+from scipy.special import gammaln
+from scipy.stats import norm
 import numpy as np
 
 def _apply1d(func, data):
@@ -218,19 +219,12 @@ class RangeRatio:
 
         # Compute normalization factor (term in Dixon's eqn containing
         # factorials, plus three 1/sqrt(2*pi) terms from normal distributions)
-        factor = np.reciprocal(np.sqrt((2.0 * np.pi)**3))
+        den = factorial(self.i - 1) * factorial(self.size - j - i - 1) * factorial(self.j - 1)
 
-        for k in reversed(np.arange(self.size) + 1):
-            pf = np.astype(k, float)
+        if den == 0:
+            raise ValueError(f'too few samples ({self.size}); at least {j + i + 1} are required')
 
-            if k <= self.i - 1:
-                pf = pf / k
-            if k <= self.size - self.j - self.i - 1:
-                pf = pf / k
-            if k <= self.j - 1:
-                pf = pf / k
-
-            factor = factor * pf
+        factor = np.reciprocal(np.sqrt((2.0 * np.pi)**3)) * factorial(self.size) / den
 
         self.nvec = nvec
         self.ngl = ngl
