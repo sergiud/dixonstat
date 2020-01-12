@@ -119,27 +119,29 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
 
         it = it + 1
 
+    # Evaluate the recurrence formula
     alpha = np.empty_like(a_coeffs)
-    beta = np.empty_like(alpha)
 
+    # Eq. 3.1
     alpha[0] = np.exp(gammaln(1 + gamma / 2)) / \
         np.exp(gammaln((1 + gamma) / 2))
-    beta[0] = np.sqrt(np.pi) / 2.0
 
     idxs1 = idxs[1:]
+    # Eq. 3.2
     alpha[1:] = np.sqrt((2 * idxs1 + gamma + 1.0) / 3.0 -
                         g[idxs1 + 1] - g[idxs1])
-    beta[1:] = (idxs1 + gamma / 2.0) / 6.0 + g[idxs1]
+    # Eq. 3.3
+    beta = (idxs1 + gamma / 2.0) / 6.0 + g[idxs1]
 
     # Coefficients on the subdiagonal
-    s = np.sqrt(beta[1:])
+    s = np.sqrt(beta)
 
     # Compute the eigenvalues and the eigenvectors. Eigenvectors are already
     # sorted and normalized.
     eval, evec = eigh_tridiagonal(alpha, s)
 
     # Gaussian weights
-    weights = beta[0] * np.square(evec[0, :])
+    weights = np.sqrt(np.pi) / 2.0 * np.square(evec[0, :])
 
     return eval, weights
 
