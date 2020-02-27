@@ -1,3 +1,4 @@
 *.orig
 *.py[cod]
+/.coverage
 __pycache__/
