@@ -23,11 +23,13 @@ from scipy.special import gammaln
 from scipy.stats import norm
 import numpy as np
 
+
 def _apply1d(func, data):
     arr = np.asarray(data)
     result = np.apply_along_axis(func, 0, np.atleast_2d(arr))
 
     return result.item() if arr.size == 1 else result.reshape(arr.shape)
+
 
 def estimate_g(i, gamma):
     gamma2 = np.square(gamma)
@@ -285,8 +287,10 @@ class RangeRatio:
         v = self.t[..., np.newaxis, np.newaxis] * factor * self.sqrt2
         c1 = self.Phi(self.x[..., np.newaxis, np.newaxis] - v)
         c3 = self.Phi(self.x[..., np.newaxis, np.newaxis] - r * v)
-        g = c1**(self.i - 1) * (c3 - c1)**(self.size - self.j - self.i - 1) * (self.c2[..., np.newaxis, np.newaxis] - c3)**(self.j - 1)
-        density = self.w[..., np.newaxis, np.newaxis] * v * np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
+        g = c1**(self.i - 1) * (c3 - c1)**(self.size - self.j - self.i - 1) * \
+            (self.c2[..., np.newaxis, np.newaxis] - c3)**(self.j - 1)
+        density = self.w[..., np.newaxis, np.newaxis] * v * \
+            np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
 
         return np.sum(density, axis=0) * factor * self.factor * self.sqrt4_3
 
@@ -311,7 +315,8 @@ class RangeRatio:
         # For each ratio, we have multiple weights.
         half_R = R * 0.5
         # Quadrature nodes
-        prob = self.pdf(np.atleast_3d(half_R * (np.atleast_2d(self.xgl + 1).T)).T)
+        prob = self.pdf(np.atleast_3d(
+            half_R * (np.atleast_2d(self.xgl + 1).T)).T)
         weighted_prob = np.squeeze(self.wgl * prob, axis=0).T
         # Summing over the weighted probabilities results in the integral from
         # 0 to R (i.e., each ratio).
@@ -345,7 +350,8 @@ class RangeRatio:
             raise ValueError('percentile cannot be negative')
 
         if not np.any(q < 1.0):
-            raise ValueError('percentile cannot be larger than or equal to 1.0')
+            raise ValueError(
+                'percentile cannot be larger than or equal to 1.0')
 
         return _apply1d(self.__single_ppf, q)
 
@@ -354,25 +360,31 @@ def r10(size, **kwargs):
     """Returns the :math:`r_{10}` range ratio statistic."""
     return RangeRatio(size, 1, 1, **kwargs)
 
+
 def r11(size, **kwargs):
     """Returns the :math:`r_{11}` range ratio statistic."""
     return RangeRatio(size, 1, 2, **kwargs)
+
 
 def r12(size, **kwargs):
     """Returns the :math:`r_{12}` range ratio statistic."""
     return RangeRatio(size, 1, 3, **kwargs)
 
+
 def r20(size, **kwargs):
     """Returns the :math:`r_{20}` range ratio statistic."""
     return RangeRatio(size, 2, 1, **kwargs)
+
 
 def r21(size, **kwargs):
     """Returns the :math:`r_{21}` range ratio statistic."""
     return RangeRatio(size, 2, 2, **kwargs)
 
+
 def r22(size, **kwargs):
     """Returns the :math:`r_{22}` range ratio statistic."""
     return RangeRatio(size, 2, 3, **kwargs)
+
 
 Q = r10
 """Returns Dixon's :math:`Q` statistic.
@@ -386,6 +398,7 @@ size
 kwargs
     The number of quadrature points used for initializing :class:`RangeRatio`.
 """
+
 
 def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
     """Perform Dixon's ratio test.
@@ -431,10 +444,11 @@ def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
     return gap, s.ppf(q)
 
 
+
 if __name__ == '__main__':
     #r11 = RangeRatio(7, 1, 2)
 
-    #print(r11.cdf(0.49))
+    # print(r11.cdf(0.49))
 
     #r11 = RangeRatio(30, 1, 2)
 
@@ -442,7 +456,7 @@ if __name__ == '__main__':
 
     #import matplotlib.pyplot as plt
 
-    #plt.figure()
+    # plt.figure()
 
     #s = r21(30)
 
@@ -450,5 +464,5 @@ if __name__ == '__main__':
     #y = s.ppf(x)
 
     #plt.plot(x, y)
-    #plt.show()
+    # plt.show()
     pass
