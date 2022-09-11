@@ -47,7 +47,8 @@ def estimate_g(i, gamma):
     # Eq. 3.9
     g = (C0 + (C1 + (C2 + C3 / y2) / y2) / y2) / y
 
-    return np.concatenate(([0], g, [0]))
+    # Pad with 0 to allow for indexing g_{n-1} and g_{n+1}
+    return np.pad(g, 1)
 
 
 def cost_F(i, gamma, g):
