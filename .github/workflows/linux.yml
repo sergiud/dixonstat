@@ -1,0 +1,53 @@
+name: Linux
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    name: Python-${{matrix.python}}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python:
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{matrix.python}}
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Setup Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install --verbose --editable .
+
+      - name: Generate Documentation
+        run: |
+          sphinx-build -M html docs/ docs/_build -W --keep-going
+
+      - name: Test
+        run: |
+          coverage run -m pytest --junit-xml=report.xml
+
+      - name: Generate Coverage
+        run: |
+          coverage combine
+          coverage report
+          coverage xml
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: true
+          verbose: true

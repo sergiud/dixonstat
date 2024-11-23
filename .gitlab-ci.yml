@@ -13,6 +13,7 @@ before_script:
 test:
   script:
     - coverage run -m pytest --junitxml pytest.xml
+    - coverage combine
     - coverage report
     - coverage xml
   coverage: '/TOTAL.+ ([0-9]{1,3}%)/'

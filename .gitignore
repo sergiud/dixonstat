@@ -1,4 +1,5 @@
 *.orig
 *.py[cod]
 /.coverage
+/docs/_build/
 __pycache__/

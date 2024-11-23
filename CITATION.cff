@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: If you use dixonstat in your work, please reference it as below.
+title: dixonstat
+abstract: Identification and rejection of outliers using Dixon's r statistics
+authors:
+- family-names: Deitsch
+  given-names: Sergiu
+  orcid: https://orcid.org/0000-0001-8865-8066
+version: 0.1.0
+date-released: 2018-04-30
+license: Apache-2.0
+repository-code: https://github.com/sergiud/dixonstat
