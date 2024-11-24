@@ -94,7 +94,7 @@ class RangeRatio:
 
         m = 0
 
-        for l in range(nhh):     # half-range index
+        for l in range(nhh):  # half-range index
             for k in range(nfh):  # full-range index
                 t[m] = xhh[l]
                 u[m] = xfh[k]
@@ -103,16 +103,22 @@ class RangeRatio:
                 z[m] = t[m] * u[m]
                 c2[m] = self.Phi(x[m])
 
-                m = m + 1          # composite index
+                m = m + 1  # composite index
 
         # Compute normalization factor (term in Dixon's eqn containing
         # factorials, plus three 1/sqrt(2*pi) terms from normal distributions)
-        den = factorial(self.i - 1) * factorial(self.size - j - i - 1) * factorial(self.j - 1)
+        den = (
+            factorial(self.i - 1)
+            * factorial(self.size - j - i - 1)
+            * factorial(self.j - 1)
+        )
 
         if den == 0:
-            raise ValueError(f'too few samples ({self.size}); at least {j + i + 1} are required')
+            raise ValueError(
+                f'too few samples ({self.size}); at least {j + i + 1} are required'
+            )
 
-        factor = np.reciprocal(np.sqrt((2.0 * np.pi)**3)) * factorial(self.size) / den
+        factor = np.reciprocal(np.sqrt((2.0 * np.pi) ** 3)) * factorial(self.size) / den
 
         self.nvec = nvec
         self.ngl = ngl
@@ -168,10 +174,17 @@ class RangeRatio:
         v = self.t[..., np.newaxis, np.newaxis] * factor * self.sqrt2
         c1 = self.Phi(self.x[..., np.newaxis, np.newaxis] - v)
         c3 = self.Phi(self.x[..., np.newaxis, np.newaxis] - r * v)
-        g = c1**(self.i - 1) * (c3 - c1)**(self.size - self.j - self.i - 1) * \
-            (self.c2[..., np.newaxis, np.newaxis] - c3)**(self.j - 1)
-        density = self.w[..., np.newaxis, np.newaxis] * v * \
-            np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
+        g = (
+            c1 ** (self.i - 1)
+            * (c3 - c1) ** (self.size - self.j - self.i - 1)
+            * (self.c2[..., np.newaxis, np.newaxis] - c3) ** (self.j - 1)
+        )
+        density = (
+            self.w[..., np.newaxis, np.newaxis]
+            * v
+            * np.exp(self.z[..., np.newaxis, np.newaxis] * f)
+            * g
+        )
 
         return np.sum(density, axis=0) * factor * self.factor * self.sqrt4_3
 
@@ -196,8 +209,7 @@ class RangeRatio:
         # For each ratio, we have multiple weights.
         half_R = R * 0.5
         # Quadrature nodes
-        prob = self.pdf(np.atleast_3d(
-            half_R * (np.atleast_2d(self.xgl + 1).T)).T)
+        prob = self.pdf(np.atleast_3d(half_R * (np.atleast_2d(self.xgl + 1).T)).T)
         weighted_prob = np.squeeze(self.wgl * prob, axis=0).T
         # Summing over the weighted probabilities results in the integral from
         # 0 to R (i.e., each ratio).
@@ -231,8 +243,7 @@ class RangeRatio:
             raise ValueError('percentile cannot be negative')
 
         if not np.any(q < 1.0):
-            raise ValueError(
-                'percentile cannot be larger than or equal to 1.0')
+            raise ValueError('percentile cannot be larger than or equal to 1.0')
 
         return _apply1d(self.__single_ppf, q)
 
@@ -326,18 +337,18 @@ def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
 
 
 def main():
-    #r11 = RangeRatio(30, 1, 2)
+    # r11 = RangeRatio(30, 1, 2)
 
-    #print(r11.ppf(1 - 0.005))
+    # print(r11.ppf(1 - 0.005))
 
-    #import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     # plt.figure()
 
-    #s = r21(30)
+    # s = r21(30)
 
-    #x = np.linspace(0, 0.9999, 500)
-    #y = s.ppf(x)
+    # x = np.linspace(0, 0.9999, 500)
+    # y = s.ppf(x)
 
     # plt.plot(x, y)
     # plt.show()
