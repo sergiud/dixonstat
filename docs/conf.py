@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pa
 project = 'dixonstat'
 copyright = '2024, Sergiu Deitsch'
 author = 'Sergiu Deitsch'
-release = '0.1.0a1.dev2'
+release = '0.1.0a0.dev0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
