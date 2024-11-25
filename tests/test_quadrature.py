@@ -16,9 +16,11 @@
 
 from dixonstat._quadrature import half_hermgauss
 import numpy as np
+import pytest
 
 
-def test_exp_minus_10x():
+@pytest.mark.parametrize('n_iter', [100, 12])
+def test_exp_minus_10x(n_iter):
     '''Evaluate the integral
 
         ∞
@@ -33,6 +35,6 @@ def test_exp_minus_10x():
     the symbolic evaluation.
     '''
 
-    x, w = half_hermgauss(50, gamma=0)
+    x, w = half_hermgauss(50, gamma=0, n_iter=n_iter)
     inter = np.inner(w, np.exp(-10 * x))
     np.testing.assert_almost_equal(inter, 0.0981094307315388, 7)

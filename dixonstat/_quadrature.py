@@ -128,7 +128,7 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
         it = it + 1
 
     # Evaluate the recurrence formula
-    alpha = np.empty_like(a_coeffs)
+    alpha = np.empty_like(g[1:-1])
 
     # Eq. 3.1
     alpha[0] = np.exp(gammaln(1 + gamma / 2)) / np.exp(gammaln((1 + gamma) / 2))
