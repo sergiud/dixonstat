@@ -72,7 +72,7 @@ jobs:
           pip install --verbose --editable .
 
       - name: Restore Benchmark Baseline
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: benchmark-data.json
           key: benchmark-data-${{github.run_id}}
