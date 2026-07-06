@@ -98,6 +98,9 @@ def test_failures(ratio):
     with pytest.raises(ValueError, match='cannot be larger'):
         ratio(15).ppf(1.0)
 
+    with pytest.raises(ValueError, match='cannot be larger'):
+        ratio(15).ppf(np.array([0.5, 1.0]))
+
 
 def test_too_few_samples():
     with pytest.raises(ValueError, match='too few samples'):

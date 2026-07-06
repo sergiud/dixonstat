@@ -236,7 +236,7 @@ class RangeRatio:
         if np.any(q < 0.0):
             raise ValueError('percentile cannot be negative')
 
-        if not np.any(q < 1.0):
+        if np.any(q >= 1.0):
             raise ValueError('percentile cannot be larger than or equal to 1.0')
 
         return _apply1d(self.__single_ppf, q)
