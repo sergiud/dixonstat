@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dixonstat._quadrature import alpha0
 from dixonstat._quadrature import cost_and_jac
 from dixonstat._quadrature import half_hermgauss
 import numpy as np
@@ -60,6 +61,19 @@ def test_cost_and_jac_matches_symbolic_derivative():
     np.testing.assert_allclose(jac_prev_val, jac_prev_fn(*args))
     np.testing.assert_allclose(jac_cur_val, jac_cur_fn(*args))
     np.testing.assert_allclose(jac_next_val, jac_next_fn(*args))
+
+
+def test_alpha0_matches_gamma_zero_case():
+    np.testing.assert_allclose(alpha0(0.0), 1.0 / np.sqrt(np.pi))
+
+
+def test_alpha0_stays_finite_for_large_gamma():
+    # Individually exponentiating each gammaln term overflows float64
+    # (around gammaln(172)) long before their ratio does.
+    value = alpha0(342.0)
+
+    assert np.isfinite(value)
+    np.testing.assert_allclose(value, 13.08625930053484)
 
 
 @pytest.mark.parametrize('n_iter', [100, 12])

@@ -20,6 +20,13 @@ from scipy.special import gammaln
 import numpy as np
 
 
+def alpha0(gamma):
+    # Eq. 3.1, evaluated as a single exponential of a log-ratio instead of
+    # a ratio of two exponentials, since the individual gamma function
+    # values overflow float64 far earlier than their ratio does.
+    return np.exp(gammaln(1 + gamma / 2) - gammaln((1 + gamma) / 2))
+
+
 def estimate_g(i, gamma):
     gamma2 = np.square(gamma)
 
@@ -104,8 +111,7 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
     # Evaluate the recurrence formula
     alpha = np.empty_like(g[1:-1])
 
-    # Eq. 3.1
-    alpha[0] = np.exp(gammaln(1 + gamma / 2)) / np.exp(gammaln((1 + gamma) / 2))
+    alpha[0] = alpha0(gamma)
 
     idxs1 = idxs[1:]
     # Eq. 3.2

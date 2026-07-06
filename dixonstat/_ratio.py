@@ -106,9 +106,7 @@ class RangeRatio:
         # overflow float64 for sample sizes as small as 171 even though
         # their ratio remains representable.
         log_den = gammaln(self.i) + gammaln(self.size - j - i) + gammaln(self.j)
-        log_factor = (
-            -1.5 * np.log(2.0 * np.pi) + gammaln(self.size + 1) - log_den
-        )
+        log_factor = -1.5 * np.log(2.0 * np.pi) + gammaln(self.size + 1) - log_den
         factor = np.exp(log_factor)
 
         self.nvec = nvec
