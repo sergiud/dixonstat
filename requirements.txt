@@ -6,5 +6,6 @@ numpy
 pytest>=4.6.5
 pytest-benchmark
 scipy
+sympy
 
 -r docs/requirements.txt

@@ -11,6 +11,7 @@ before_script:
     py3-pytest
     py3-pytest-benchmark
     py3-scipy
+    py3-sympy
 
 test:
   script:

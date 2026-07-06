@@ -1,6 +1,6 @@
 # Identification and rejection of outliers using Dixon's r statistics.
 #
-# Copyright 2024 Sergiu Deitsch <sergiu.deitsch@gmail.com>
+# Copyright 2026 Sergiu Deitsch <sergiu.deitsch@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,53 +51,28 @@ def estimate_g(i, gamma):
     return np.pad(g, 1)
 
 
-def cost_F(i, gamma, g):
+def cost_and_jac(i, gamma, g):
     y = 2.0 * i + gamma
 
     g_prev = g[i - 1]
     g_cur = g[i]
     g_next = g[i + 1]
+
+    a = (y + 1) / 3 - g_next - g_cur
+    b = (y - 1) / 3 - g_cur - g_prev
+    c = y / 12 + g_cur
+    e = y / 6 - g_cur
+    d = e**2 - gamma**2 / 16
+    c2 = c**2
 
     # Eq. 3.14
-    return ((y + 1) / 3 - g_next - g_cur) * ((y - 1) / 3 - g_cur - g_prev) * (
-        y / 12 + g_cur
-    ) ** 2 - ((y / 6 - g_cur) ** 2 - gamma**2 / 16) ** 2
+    residual = a * b * c2 - d**2
 
+    jac_prev = -a * c2
+    jac_next = -b * c2
+    jac_cur = 2 * a * b * c - a * c2 - b * c2 + 4 * d * e
 
-def jac_dF_dg_prev(i, gamma, g):
-    y = 2.0 * i + gamma
-
-    g_cur = g[i]
-    g_next = g[i + 1]
-
-    return -((y + 1.0) / 3.0 - g_next - g_cur) * (y / 12.0 + g_cur) ** 2
-
-
-def jac_dF_dg_next(i, gamma, g):
-    y = 2.0 * i + gamma
-
-    g_prev = g[i - 1]
-    g_cur = g[i]
-
-    return -((y - 1.0) / 3.0 - g_cur - g_prev) * (y / 12.0 + g_cur) ** 2
-
-
-def jac_dF_dg_cur(i, gamma, g):
-    y = 2.0 * i + gamma
-
-    g_prev = g[i - 1]
-    g_cur = g[i]
-    g_next = g[i + 1]
-
-    return (
-        ((y + 1) / 3 - g_next - g_cur)
-        * ((y - 1) / 3 - g_cur - g_prev)
-        * 2
-        * (y / 12 + g_cur)
-        - ((y + 1) / 3 - g_next - g_cur) * (y / 12 + g_cur) ** 2
-        - ((y - 1) / 3 - g_cur - g_prev) * (y / 12 + g_cur) ** 2
-        + 2 * ((y / 6 - g_cur) ** 2 - gamma * gamma / 16) * 2 * (y / 6 - g_cur)
-    )
+    return residual, jac_prev, jac_cur, jac_next
 
 
 def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
@@ -107,16 +82,15 @@ def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
 
     it = 0
 
-    # Refine g using Newton's method.
+    # Refine g using Newton's method with the tridiagonal Jacobian solved
+    # via solve_banded in O(n) per iteration. scipy.optimize.root has no
+    # banded-Jacobian option, so it would fall back to a dense solve here
+    # and slow this down rather than help.
     while it < n_iter:
-        residual = cost_F(idxs, gamma, g)
+        residual, a_coeffs, b_coeffs, c_coeffs = cost_and_jac(idxs, gamma, g)
 
         if np.dot(residual, residual) < eps:
             break
-
-        a_coeffs = jac_dF_dg_prev(idxs, gamma, g)
-        b_coeffs = jac_dF_dg_cur(idxs, gamma, g)
-        c_coeffs = jac_dF_dg_next(idxs, gamma, g)
 
         a_coeffs[:2] = 0
         # Tridiagonal Jacobian w.r.t g_{n-1}, g_n, and g_{n+1}.
