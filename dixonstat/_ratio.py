@@ -205,6 +205,10 @@ class RangeRatio:
         # 0 to R (i.e., each ratio).
         cdf = np.sum(weighted_prob, axis=0) * half_R
 
+        # The quadrature can overshoot slightly past the theoretical bounds
+        # near the tails; clip to enforce the CDF invariant.
+        cdf = np.clip(cdf, 0.0, 1.0)
+
         # Restore the shape of input parameter R.
         return np.reshape(cdf, shape)
 

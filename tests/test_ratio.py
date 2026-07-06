@@ -66,6 +66,28 @@ def test_accuracy():
         dixonstat.r22,
     ],
 )
+@pytest.mark.parametrize('size', [5, 10, 20, 30])
+def test_cdf_is_bounded_by_one(ratio, size):
+    try:
+        s = ratio(size)
+    except ValueError:
+        pytest.skip('not enough samples for this combination')
+
+    r = np.linspace(0.0, 1.0, 201)
+    assert np.max(s.cdf(r)) <= 1.0
+
+
+@pytest.mark.parametrize(
+    'ratio',
+    [
+        dixonstat.r10,
+        dixonstat.r11,
+        dixonstat.r12,
+        dixonstat.r20,
+        dixonstat.r21,
+        dixonstat.r22,
+    ],
+)
 def test_failures(ratio):
     with pytest.raises(ValueError, match='at least 3 samples'):
         ratio(2)
