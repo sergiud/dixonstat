@@ -5,9 +5,11 @@ default:
 
 before_script:
   - apk add
+    curl
     py3-coverage
     py3-numpy
     py3-pytest
+    py3-pytest-benchmark
     py3-scipy
 
 test:
@@ -24,3 +26,17 @@ test:
         coverage_format: cobertura
         path: coverage.xml
       junit: pytest.xml
+
+benchmark:
+  script:
+    - python3 -m pytest --benchmark-only --benchmark-json=benchmark.json
+    - >
+      curl --silent --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}"
+      "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/jobs/artifacts/${CI_DEFAULT_BRANCH}/raw/benchmark.json?job=benchmark"
+      --output baseline.json
+      || echo 'no baseline benchmark artifact found on the default branch yet'
+    - python3 scripts/compare_benchmarks.py baseline.json benchmark.json --threshold 2.0
+  artifacts:
+    when: always
+    paths:
+      - benchmark.json

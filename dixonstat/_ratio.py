@@ -1,6 +1,6 @@
 # Identification and rejection of outliers using Dixon's r statistics.
 #
-# Copyright 2017 Sergiu Deitsch <sergiu.deitsch@gmail.com>
+# Copyright 2026 Sergiu Deitsch <sergiu.deitsch@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,29 +81,19 @@ class RangeRatio:
         nhh = hgh_order
 
         nvec = nhh * nfh
-        t = np.empty(nvec)
-        u = np.empty(nvec)
-        x = np.empty(nvec)
-        w = np.empty(nvec)
-        z = np.empty(nvec)
-        c2 = np.empty(nvec)
 
         xhh, whh = half_hermgauss(nhh)
         xfh, wfh = np.polynomial.hermite.hermgauss(nfh)
         xgl, wgl = np.polynomial.legendre.leggauss(ngl)
 
-        m = 0
-
-        for l in range(nhh):  # half-range index
-            for k in range(nfh):  # full-range index
-                t[m] = xhh[l]
-                u[m] = xfh[k]
-                x[m] = u[m] * self.sqrt2_3
-                w[m] = whh[l] * wfh[k]  # combined weight
-                z[m] = t[m] * u[m]
-                c2[m] = self.Phi(x[m])
-
-                m = m + 1  # composite index
+        # Composite index m = l * nfh + k combines the half-range index l
+        # and the full-range index k into a single flat grid.
+        t = np.repeat(xhh, nfh)
+        u = np.tile(xfh, nhh)
+        x = u * self.sqrt2_3
+        w = np.outer(whh, wfh).ravel()  # combined weight
+        z = t * u
+        c2 = self.Phi(x)
 
         # Compute normalization factor (term in Dixon's eqn containing
         # factorials, plus three 1/sqrt(2*pi) terms from normal distributions)

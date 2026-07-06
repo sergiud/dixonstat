@@ -36,7 +36,7 @@ jobs:
 
       - name: Test
         run: |
-          coverage run -m pytest --junit-xml=report.xml
+          coverage run -m pytest --benchmark-skip --junit-xml=report.xml
 
       - name: Generate Coverage
         run: |
@@ -51,3 +51,43 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: true
           verbose: true
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Setup Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install --verbose --editable .
+
+      - name: Restore Benchmark Baseline
+        uses: actions/cache@v4
+        with:
+          path: benchmark-data.json
+          key: benchmark-data-${{github.run_id}}
+          restore-keys: |
+            benchmark-data-
+
+      - name: Run Benchmarks
+        run: |
+          python -m pytest --benchmark-only --benchmark-json=benchmark-result.json
+
+      - name: Compare Against Baseline
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: 'pytest'
+          output-file-path: benchmark-result.json
+          external-data-json-path: benchmark-data.json
+          fail-on-alert: true
+          alert-threshold: '200%'

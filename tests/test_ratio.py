@@ -1,6 +1,6 @@
 # Identification and rejection of outliers using Dixon's r statistics.
 #
-# Copyright 2024 Sergiu Deitsch <sergiu.deitsch@gmail.com>
+# Copyright 2026 Sergiu Deitsch <sergiu.deitsch@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,6 +80,16 @@ def test_failures(ratio):
 def test_too_few_samples():
     with pytest.raises(ValueError, match='too few samples'):
         dixonstat.r22(5)
+
+
+def test_construction_scales_with_quadrature_order(benchmark):
+    # Building the quadrature grid used to be a pure-Python nested loop,
+    # which made construction take the better part of a second for
+    # moderately large quadrature orders. A generous budget is used to
+    # avoid flakiness while still catching a regression back to the loop.
+    benchmark(dixonstat.RangeRatio, 30, 1, 1, hgh_order=150, fgh_order=150)
+
+    assert benchmark.stats.stats.mean < 0.2
 
 
 @pytest.mark.parametrize(
