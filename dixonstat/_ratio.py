@@ -168,14 +168,11 @@ class RangeRatio:
             * (c3 - c1) ** (self.size - self.j - self.i - 1)
             * (self.c2[..., np.newaxis, np.newaxis] - c3) ** (self.j - 1)
         )
-        density = (
-            self.w[..., np.newaxis, np.newaxis]
-            * v
-            * np.exp(self.z[..., np.newaxis, np.newaxis] * f)
-            * g
-        )
+        combined = v * np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
+        # Weighted sum over the quadrature nodes (axis 0).
+        density = np.tensordot(self.w, combined, axes=(0, 0))
 
-        return np.sum(density, axis=0) * factor * self.factor * self.sqrt4_3
+        return density * factor * self.factor * self.sqrt4_3
 
     def cdf(self, R):
         R"""The cumulative distribution function.
@@ -198,11 +195,10 @@ class RangeRatio:
         # For each ratio, we have multiple weights.
         half_R = R * 0.5
         # Quadrature nodes
-        prob = self.pdf(np.atleast_3d(half_R * (np.atleast_2d(self.xgl + 1).T)).T)
-        weighted_prob = np.squeeze(self.wgl * prob, axis=0).T
+        prob = self.pdf(half_R[..., np.newaxis] * (self.xgl + 1))
         # Summing over the weighted probabilities results in the integral from
         # 0 to R (i.e., each ratio).
-        cdf = np.sum(weighted_prob, axis=0) * half_R
+        cdf = np.einsum('...k,k->...', prob, self.wgl) * half_R
 
         # The quadrature can overshoot slightly past the theoretical bounds
         # near the tails; clip to enforce the CDF invariant.

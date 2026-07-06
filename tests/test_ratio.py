@@ -55,6 +55,54 @@ def test_accuracy():
     np.testing.assert_approx_equal(r11.ppf(0.9), 0.532944, 6)
 
 
+def test_pdf_matches_reference_computation():
+    # pdf fuses the quadrature-weighted sum via tensordot instead of
+    # materializing a weighted array and summing it. Reimplement the
+    # unfused formula independently and check the two agree.
+    r = dixonstat.RangeRatio(10, 1, 1)
+    R = np.linspace(0.01, 0.99, 25)
+
+    factor = np.reciprocal(np.sqrt(1.0 + np.square(R)))
+    f = (1.0 + R) * 2.0 * factor * r.sqrt1_3
+    v = r.t[..., np.newaxis, np.newaxis] * factor * r.sqrt2
+    c1 = r.Phi(r.x[..., np.newaxis, np.newaxis] - v)
+    c3 = r.Phi(r.x[..., np.newaxis, np.newaxis] - R * v)
+    g = (
+        c1 ** (r.i - 1)
+        * (c3 - c1) ** (r.size - r.j - r.i - 1)
+        * (r.c2[..., np.newaxis, np.newaxis] - c3) ** (r.j - 1)
+    )
+    density = (
+        r.w[..., np.newaxis, np.newaxis]
+        * v
+        * np.exp(r.z[..., np.newaxis, np.newaxis] * f)
+        * g
+    )
+    expected = np.sum(density, axis=0) * factor * r.factor * r.sqrt4_3
+
+    np.testing.assert_array_almost_equal_nulp(r.pdf(R), expected, nulp=64)
+
+
+def test_cdf_matches_reference_computation():
+    # cdf builds its quadrature nodes and reduces the weighted
+    # probabilities via broadcasting and einsum instead of the
+    # atleast_3d/squeeze/transpose sequence it used to. Reimplement the
+    # original sequence independently and check the two agree.
+    r = dixonstat.RangeRatio(10, 1, 1)
+    R = np.linspace(0.01, 0.99, 25)
+
+    shape = np.shape(R)
+    half_R = np.atleast_2d(R) * 0.5
+    arg = np.atleast_3d(half_R * (np.atleast_2d(r.xgl + 1).T)).T
+    prob = r.pdf(arg)
+    weighted_prob = np.squeeze(r.wgl * prob, axis=0).T
+    expected = np.sum(weighted_prob, axis=0) * half_R
+    expected = np.clip(expected, 0.0, 1.0)
+    expected = np.reshape(expected, shape)
+
+    np.testing.assert_array_almost_equal_nulp(r.cdf(R), expected, nulp=64)
+
+
 @pytest.mark.parametrize(
     'ratio',
     [
