@@ -128,6 +128,27 @@ def test_construction_scales_with_quadrature_order(benchmark):
         dixonstat.r22,
     ],
 )
+def test_large_sample_size_is_finite(ratio):
+    # 171! overflows float64, which previously propagated into the
+    # normalization factor and turned every result into NaN.
+    s = ratio(200)
+
+    assert np.isfinite(s.factor)
+    assert np.isfinite(s.cdf(0.5))
+    assert np.isfinite(s.ppf(0.95))
+
+
+@pytest.mark.parametrize(
+    'ratio',
+    [
+        dixonstat.r10,
+        dixonstat.r11,
+        dixonstat.r12,
+        dixonstat.r20,
+        dixonstat.r21,
+        dixonstat.r22,
+    ],
+)
 @pytest.mark.parametrize('alternative', ['one-sided', 'two-sided'])
 def test_normal_ratio(ratio, alternative):
     samples = scipy.stats.norm().rvs(size=30, random_state=42)

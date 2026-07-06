@@ -17,7 +17,7 @@
 from ._quadrature import half_hermgauss
 from functools import partial
 from scipy.optimize import brentq
-from scipy.special import factorial
+from scipy.special import gammaln
 from scipy.stats import norm
 import numpy as np
 
@@ -95,20 +95,21 @@ class RangeRatio:
         z = t * u
         c2 = self.Phi(x)
 
-        # Compute normalization factor (term in Dixon's eqn containing
-        # factorials, plus three 1/sqrt(2*pi) terms from normal distributions)
-        den = (
-            factorial(self.i - 1)
-            * factorial(self.size - j - i - 1)
-            * factorial(self.j - 1)
-        )
-
-        if den == 0:
+        if self.size - j - i - 1 < 0:
             raise ValueError(
                 f'too few samples ({self.size}); at least {j + i + 1} are required'
             )
 
-        factor = np.reciprocal(np.sqrt((2.0 * np.pi) ** 3)) * factorial(self.size) / den
+        # Compute normalization factor (term in Dixon's eqn containing
+        # factorials, plus three 1/sqrt(2*pi) terms from normal distributions)
+        # in log-space using gammaln, since the individual factorials
+        # overflow float64 for sample sizes as small as 171 even though
+        # their ratio remains representable.
+        log_den = gammaln(self.i) + gammaln(self.size - j - i) + gammaln(self.j)
+        log_factor = (
+            -1.5 * np.log(2.0 * np.pi) + gammaln(self.size + 1) - log_den
+        )
+        factor = np.exp(log_factor)
 
         self.nvec = nvec
         self.ngl = ngl
