@@ -307,7 +307,7 @@ def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
 
     xi = sorted_rvs[s.i - 1]
     xn = sorted_rvs[-1]
-    xnj = sorted_rvs[-s.j]
+    xnj = sorted_rvs[-s.j - 1]
 
     # rij
     # gap = (xn - xi) / (xnj - xi)

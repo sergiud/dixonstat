@@ -187,6 +187,27 @@ def test_large_sample_size_is_finite(ratio):
 
 
 @pytest.mark.parametrize(
+    'ratio,expected',
+    [
+        (dixonstat.r10, 50.0 / 90.0),
+        (dixonstat.r11, 50.0 / 80.0),
+        (dixonstat.r12, 50.0 / 70.0),
+        (dixonstat.r20, 60.0 / 90.0),
+        (dixonstat.r21, 60.0 / 80.0),
+        (dixonstat.r22, 60.0 / 70.0),
+    ],
+)
+def test_ratiotest_gap(ratio, expected):
+    # Hand-computed from the sorted sample [10, 20, 30, 40, 50, 100]:
+    # the gap ratio must use the (n - j)-th order statistic, not the
+    # n-th (which degenerates to 0 for every j=1 statistic).
+    samples = np.array([40.0, 10.0, 100.0, 50.0, 20.0, 30.0])
+    gap, _ = dixonstat.ratiotest(ratio, samples, 0.05, 'one-sided')
+
+    np.testing.assert_almost_equal(gap, expected, 6)
+
+
+@pytest.mark.parametrize(
     'ratio',
     [
         dixonstat.r10,
