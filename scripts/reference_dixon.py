@@ -197,7 +197,7 @@ def critical_value(q, size, j, i, dps=DEFAULT_DPS, start=None):
     Parameters
     ----------
     q : str
-        The percentile as a decimal string, so that it is not rounded to
+        The probability as a decimal string, so that it is not rounded to
         float64.
     size : int
         The number of observations :math:`n`.

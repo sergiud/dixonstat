@@ -24,8 +24,8 @@ import numpy as np
 
 # The density concentrates with increasing sample size, so a fixed order cannot
 # serve every size. Up to 300 observations, this rule keeps the relative error
-# of the probability between the 0.95 and 0.995 percentiles below 1e-11 and that
-# of the tail above the 0.995 percentile below 1e-10, at the lowest cost among
+# of the probability between the 0.95 and 0.995 quantiles below 1e-11 and that
+# of the tail above the 0.995 quantile below 1e-10, at the lowest cost among
 # the rules compared against golden values.
 BASE_HALF_RANGE_ORDER = 30
 HALF_RANGE_ORDER_SLOPE = 6
@@ -101,7 +101,9 @@ class RangeRatio:
 
     def __init__(self, size, j, i, hgh_order=None, fgh_order=None, gl_order=16):
         if size < 3:
-            raise ValueError("Dixon's Q test requires at least 3 samples")
+            raise ValueError(
+                "Dixon's range ratio statistic requires at least 3 samples"
+            )
 
         self.Phi = norm().cdf
         self.sqrt2 = np.sqrt(2.0)
@@ -331,7 +333,7 @@ class RangeRatio:
         return survival(R, self.size, self.j, self.i)[1] / density + PPF_XTOL
 
     def ppf(self, q, method='gauss-kronrod', return_error=False):
-        R"""Computes percent point function value at the percentile ``q``.
+        R"""Computes percent point function value at the probability ``q``.
 
         Percent point function (inverse of cdf). The critical values correspond
         to the roots of
@@ -343,20 +345,20 @@ class RangeRatio:
         Parameters
         ----------
         q
-            The percentile.
+            The probability, in :math:`[0,1)`.
         method : {'gauss-kronrod', 'quadrature'}
             The integration method. See :meth:`cdf`.
         return_error : bool
             Whether to return an estimate of the absolute error as well. The
             estimate propagates the error of the tail through the density as
             :math:`\delta R\approx\delta G/P(R)` and adds the tolerance of the
-            root finding. It costs three additional integrals per percentile
+            root finding. It costs three additional integrals per probability
             and is not a rigorous bound.
 
         Returns
         -------
         R : float or numpy.ndarray
-            The critical value for each percentile.
+            The critical value for each probability.
         error : float or numpy.ndarray
             The estimated absolute error, only if `return_error` is set.
 
@@ -367,10 +369,10 @@ class RangeRatio:
             `return_error` is set for a method without an error estimate.
         """
         if np.any(q < 0.0):
-            raise ValueError('percentile cannot be negative')
+            raise ValueError('probability cannot be negative')
 
         if np.any(q >= 1.0):
-            raise ValueError('percentile cannot be larger than or equal to 1.0')
+            raise ValueError('probability cannot be larger than or equal to 1.0')
 
         if return_error and method != 'gauss-kronrod':
             raise ValueError(f"no error estimate for method '{method}'")
@@ -435,7 +437,8 @@ kwargs
 def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
     """Perform Dixon's ratio test.
 
-    If the statistic :math:`Q > p`, :math:`x_1` is considered an outlier.
+    If the statistic exceeds the critical value, the value under test is
+    considered an outlier.
 
     Parameters
     ----------
@@ -450,7 +453,8 @@ def ratiotest(ratio, rvs, alpha=0.05, alternative='one-sided', **kwargs):
     -------
     statistic : float
         The ratio statistic.
-    p-value: float
+    critical_value : float
+        The critical value at the ``alpha`` significance level.
     """
 
     s = ratio(size=len(rvs), **kwargs)

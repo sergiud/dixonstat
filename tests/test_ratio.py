@@ -430,9 +430,9 @@ def test_ratiotest_gap(ratio, expected):
 @pytest.mark.parametrize('alternative', ['one-sided', 'two-sided'])
 def test_normal_ratio(ratio, alternative):
     samples = scipy.stats.norm().rvs(size=30, random_state=42)
-    r, pvalue = dixonstat.ratiotest(ratio, samples, 0.05, alternative)
+    r, critical_value = dixonstat.ratiotest(ratio, samples, 0.05, alternative)
 
-    assert r <= pvalue
+    assert r <= critical_value
 
 
 @pytest.mark.parametrize(
