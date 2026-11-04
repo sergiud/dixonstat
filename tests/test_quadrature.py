@@ -17,9 +17,28 @@
 from dixonstat._quadrature import alpha0
 from dixonstat._quadrature import cost_and_jac
 from dixonstat._quadrature import half_hermgauss
+from scripts.reference_quadrature import half_hermite_moment
+from scripts.reference_quadrature import half_hermite_rule
 import numpy as np
 import pytest
 import sympy
+
+# The number of leading moments checked. Higher moments are dominated by the
+# outermost weights, whose relative accuracy is limited by the eigensolver.
+LOW_MOMENTS = 8
+EPS = np.finfo(float).eps
+
+# The tolerances are a small multiple of the deviation measured against the
+# reference: 10 eps for the moments, 2 eps of the largest node for the nodes and
+# 55 eps of the largest weight for the weights. Eigensolvers bound the absolute
+# error of eigenvalues and eigenvector components, hence the absolute scale.
+MOMENT_REL_TOL = 32 * EPS
+NODE_ABS_TOL = 8 * EPS
+WEIGHT_ABS_TOL = 128 * EPS
+
+# The number of Newton iterations for 34 nodes starting from the asymptotic
+# estimate. A linearly converging iteration needs more than twice as many.
+NEWTON_ITERATIONS = 6
 
 
 def test_cost_and_jac_matches_symbolic_derivative():
@@ -95,3 +114,42 @@ def test_exp_minus_10x(n_iter):
     x, w = half_hermgauss(50, gamma=0, n_iter=n_iter)
     inter = np.inner(w, np.exp(-10 * x))
     np.testing.assert_almost_equal(inter, 0.0981094307315388, 7)
+
+
+@pytest.mark.filterwarnings('error')
+@pytest.mark.parametrize('n', [8, 17, 34, 68])
+def test_half_hermgauss_integrates_low_moments(n):
+    x, w = half_hermgauss(n)
+
+    exact = [float(half_hermite_moment(k)) for k in range(LOW_MOMENTS)]
+    computed = [w @ x**k for k in range(LOW_MOMENTS)]
+
+    assert computed == pytest.approx(exact, rel=MOMENT_REL_TOL, abs=0.0)
+
+
+@pytest.mark.parametrize('n', [34, 68])
+def test_half_hermgauss_matches_reference_rule(n):
+    x, w = half_hermgauss(n)
+
+    reference_x, reference_w = half_hermite_rule(n)
+    expected_x = np.array([float(v) for v in reference_x])
+    expected_w = np.array([float(v) for v in reference_w])
+
+    node_tol = NODE_ABS_TOL * expected_x.max()
+    weight_tol = WEIGHT_ABS_TOL * expected_w.max()
+    assert x == pytest.approx(expected_x, rel=0.0, abs=node_tol)
+    assert w == pytest.approx(expected_w, rel=0.0, abs=weight_tol)
+
+
+def test_half_hermgauss_warns_at_the_caller_if_newton_does_not_converge():
+    with pytest.warns(
+        RuntimeWarning, match='did not converge in 5 iterations'
+    ) as record:
+        half_hermgauss(34, n_iter=NEWTON_ITERATIONS - 1)
+
+    assert record[0].filename == __file__
+
+
+@pytest.mark.filterwarnings('error')
+def test_half_hermgauss_converges_quadratically():
+    half_hermgauss(34, n_iter=NEWTON_ITERATIONS)

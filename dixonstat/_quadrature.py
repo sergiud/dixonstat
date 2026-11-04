@@ -18,6 +18,7 @@ from scipy.linalg import eigh_tridiagonal
 from scipy.linalg import solve_banded
 from scipy.special import gammaln
 import numpy as np
+import warnings
 
 
 def alpha0(gamma):
@@ -82,31 +83,45 @@ def cost_and_jac(i, gamma, g):
     return residual, jac_prev, jac_cur, jac_next
 
 
-def half_hermgauss(n, gamma=0.0, eps=1e-14, n_iter=100):
+def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
     idxs = np.arange(n)
 
     g = estimate_g(idxs, gamma)
 
-    it = 0
+    # Refine g_1, ..., g_{n-1} using Newton's method on Eq. 3.14 for
+    # k = 1, ..., n-1. g_0 and the asymptotic estimate of g_n are boundary
+    # values. The Jacobian is tridiagonal and solved via solve_banded in O(n)
+    # per iteration. scipy.optimize.root has no banded-Jacobian option, so it
+    # would fall back to a dense solve here and slow this down rather than
+    # help.
+    #
+    # solve_banded expects the diagonal ordered form ab[u + r - c, c] = J[r, c].
+    # Row 0 holds the superdiagonal shifted right by one, row 2 the subdiagonal
+    # shifted left by one.
+    ab = np.zeros((3, n - 1))
 
-    # Refine g using Newton's method with the tridiagonal Jacobian solved
-    # via solve_banded in O(n) per iteration. scipy.optimize.root has no
-    # banded-Jacobian option, so it would fall back to a dense solve here
-    # and slow this down rather than help.
-    while it < n_iter:
-        residual, a_coeffs, b_coeffs, c_coeffs = cost_and_jac(idxs, gamma, g)
+    for _ in range(n_iter):
+        residual, jac_prev, jac_cur, jac_next = cost_and_jac(idxs, gamma, g)
 
-        if np.dot(residual, residual) < eps:
-            break
+        ab[0, 1:] = jac_next[1:-1]
+        ab[1, :] = jac_cur[1:]
+        ab[2, :-1] = jac_prev[2:]
 
-        a_coeffs[:2] = 0
-        # Tridiagonal Jacobian w.r.t g_{n-1}, g_n, and g_{n+1}.
-        J = np.vstack((a_coeffs[1:], b_coeffs[1:], c_coeffs[1:]))
-
-        delta = solve_banded((1, 1), J, residual[1:])
+        delta = solve_banded((1, 1), ab, residual[1:])
         g[1:-2] -= delta
 
-        it = it + 1
+        # Newton converges quadratically, so an updated iterate is accurate to
+        # rounding error once the relative step drops below rtol. The residual
+        # stalls at a rounding floor due to cancellation in Eq. 3.14, which
+        # makes it unsuitable as a stopping criterion.
+        if np.all(np.abs(delta) <= rtol * np.abs(g[1:-2])):
+            break
+    else:
+        warnings.warn(
+            f'half-range Hermite recurrence did not converge in {n_iter} iterations',
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Evaluate the recurrence formula
     alpha = np.empty_like(g[1:-1])
