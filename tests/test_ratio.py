@@ -20,39 +20,59 @@ import pytest
 import scipy.stats
 
 
-def test_accuracy():
-    np.testing.assert_almost_equal(dixonstat.r10(5).ppf(0.95), 0.642357, 6)
+def test_accuracy(golden_value):
+    np.testing.assert_almost_equal(
+        dixonstat.r10(5).ppf(0.95), float(golden_value(5, 1, 1, '0.95')), 6
+    )
     np.testing.assert_almost_equal(dixonstat.r10(5).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(10).ppf(0.95), 0.411860, 5)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(10).ppf(0.95), float(golden_value(10, 1, 1, '0.95')), 5
+    )
     np.testing.assert_almost_equal(dixonstat.r10(10).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(15).ppf(0.95), 0.338539, 6)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(15).ppf(0.95), float(golden_value(15, 1, 1, '0.95')), 6
+    )
     np.testing.assert_almost_equal(dixonstat.r10(15).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(20).ppf(0.95), 0.300499, 6)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(20).ppf(0.95), float(golden_value(20, 1, 1, '0.95')), 6
+    )
     np.testing.assert_almost_equal(dixonstat.r10(20).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(25).ppf(0.95), 0.276421, 6)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(25).ppf(0.95), float(golden_value(25, 1, 1, '0.95')), 6
+    )
     np.testing.assert_almost_equal(dixonstat.r10(25).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(30).ppf(0.95), 0.259449, 6)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(30).ppf(0.95), float(golden_value(30, 1, 1, '0.95')), 6
+    )
     np.testing.assert_almost_equal(dixonstat.r10(30).cdf(1.0), 1, 6)
 
-    np.testing.assert_almost_equal(dixonstat.r10(40).ppf(0.95), 0.236563, 5)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(40).ppf(0.95), float(golden_value(40, 1, 1, '0.95')), 5
+    )
     np.testing.assert_almost_equal(dixonstat.r10(40).cdf(1.0), 1, 5)
 
-    np.testing.assert_almost_equal(dixonstat.r10(50).ppf(0.95), 0.221436, 5)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(50).ppf(0.95), float(golden_value(50, 1, 1, '0.95')), 5
+    )
     np.testing.assert_almost_equal(dixonstat.r10(50).cdf(1.0), 1, 5)
 
-    np.testing.assert_almost_equal(dixonstat.r10(60).ppf(0.95), 0.210451, 4)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(60).ppf(0.95), float(golden_value(60, 1, 1, '0.95')), 4
+    )
     np.testing.assert_almost_equal(dixonstat.r10(60).cdf(1.0), 1, 4)
 
-    np.testing.assert_almost_equal(dixonstat.r10(70).ppf(0.95), 0.201984, 4)
+    np.testing.assert_almost_equal(
+        dixonstat.r10(70).ppf(0.95), float(golden_value(70, 1, 1, '0.95')), 4
+    )
     np.testing.assert_almost_equal(dixonstat.r10(70).cdf(1.0), 1, 4)
 
     r11 = dixonstat.RangeRatio(7, 1, 2)
-    np.testing.assert_approx_equal(r11.ppf(0.9), 0.532944, 6)
+    np.testing.assert_approx_equal(r11.ppf(0.9), float(golden_value(7, 1, 2, '0.9')), 6)
 
 
 def test_pdf_matches_reference_computation():

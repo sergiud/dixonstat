@@ -2,6 +2,7 @@ black>=24.10.0
 coverage>=7.6.4
 flake8>=3.7.8
 isort>=5.13.2
+mpmath
 numpy
 pytest>=4.6.5
 pytest-benchmark
