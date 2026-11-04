@@ -21,6 +21,23 @@ from scipy.special import gammaln
 from scipy.stats import norm
 import numpy as np
 
+# The density concentrates with increasing sample size, so a fixed order cannot
+# serve every size. Up to 300 observations, this rule keeps the relative error
+# of the probability between the 0.95 and 0.995 percentiles below 1e-11 and that
+# of the tail above the 0.995 percentile below 1e-10, at the lowest cost among
+# the rules compared against golden values.
+BASE_HALF_RANGE_ORDER = 30
+HALF_RANGE_ORDER_SLOPE = 6
+FULL_RANGE_ORDER_FACTOR = 2
+
+# The highest degree for which numpy.polynomial.hermite.hermgauss returns finite
+# weights, determined with NumPy 2.5.
+MAX_FULL_RANGE_ORDER = 370
+
+
+def _default_half_range_order(size):
+    return BASE_HALF_RANGE_ORDER + round(HALF_RANGE_ORDER_SLOPE * np.sqrt(size))
+
 
 def _apply1d(func, data):
     arr = np.asarray(data)
@@ -45,13 +62,16 @@ class RangeRatio:
     i : int
         The number of possible outliers on the opposite end of the data from the
         suspected value.
-    hgh_order : int
+    hgh_order : int, optional
         The number of quadrature points for the half-range :math:`[0,\infty)`
-        Gauss-Hermite quadrature used to compute probability density.
-    fgh_order : int
+        Gauss-Hermite quadrature used to compute probability density. Defaults
+        to :math:`30+6\sqrt{n}` for :math:`n` observations.
+    fgh_order : int, optional
         The number of quadrature points for the full-range
         :math:`[-\infty,\infty)` Gauss-Hermite quadrature used to compute
-        probability density.
+        probability density. Defaults to twice the default of `hgh_order` up to
+        an order of 370, the largest NumPy supports, which limits the accuracy
+        beyond about 660 observations.
     gl_order : int
         The number of quadrature points for the Gauss-Legendre quadrature used
         to compute the cumulative distribution.
@@ -62,7 +82,7 @@ class RangeRatio:
         Thrown if `size` is smaller than 3.
     """
 
-    def __init__(self, size, j, i, hgh_order=17, fgh_order=31, gl_order=16):
+    def __init__(self, size, j, i, hgh_order=None, fgh_order=None, gl_order=16):
         if size < 3:
             raise ValueError("Dixon's Q test requires at least 3 samples")
 
@@ -76,9 +96,14 @@ class RangeRatio:
         self.i = i
         self.j = j
 
+        default_order = _default_half_range_order(size)
+        nhh = default_order if hgh_order is None else hgh_order
+        nfh = (
+            min(FULL_RANGE_ORDER_FACTOR * default_order, MAX_FULL_RANGE_ORDER)
+            if fgh_order is None
+            else fgh_order
+        )
         ngl = gl_order
-        nfh = fgh_order
-        nhh = hgh_order
 
         nvec = nhh * nfh
 
@@ -92,6 +117,8 @@ class RangeRatio:
         u = np.tile(xfh, nhh)
         x = u * self.sqrt2_3
         w = np.outer(whh, wfh).ravel()  # combined weight
+        with np.errstate(divide='ignore'):
+            log_w = np.log(w)
         z = t * u
         c2 = self.Phi(x)
 
@@ -115,6 +142,7 @@ class RangeRatio:
         self.u = u
         self.x = x
         self.w = w
+        self.log_w = log_w
         self.z = z
         self.c2 = c2
 
@@ -168,9 +196,13 @@ class RangeRatio:
             * (c3 - c1) ** (self.size - self.j - self.i - 1)
             * (self.c2[..., np.newaxis, np.newaxis] - c3) ** (self.j - 1)
         )
-        combined = v * np.exp(self.z[..., np.newaxis, np.newaxis] * f) * g
+        # Combine the weight with the exponential in log space. The exponential
+        # overflows at high orders even though the weight compensates for it. A
+        # weight that underflowed to zero contributes an exponent of -inf.
+        exponent = self.z[..., np.newaxis, np.newaxis] * f
+        exponent = exponent + self.log_w[..., np.newaxis, np.newaxis]
         # Weighted sum over the quadrature nodes (axis 0).
-        density = np.tensordot(self.w, combined, axes=(0, 0))
+        density = np.sum(v * np.exp(exponent) * g, axis=0)
 
         return density * factor * self.factor * self.sqrt4_3
 

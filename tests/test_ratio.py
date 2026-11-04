@@ -22,6 +22,12 @@ import scipy.stats
 # A small multiple of the deviation from the closed form, measured as 5e-15.
 CLOSED_FORM_REL_TOL = 64 * np.finfo(float).eps
 
+# The density is smooth between the critical values, so this order integrates it
+# to rounding error. The tolerance is a small multiple of the largest deviation
+# from the golden probability, 7e-12 for r22 and 100 samples.
+MASS_QUADRATURE_ORDER = 64
+MASS_REL_TOL = 2e-11
+
 
 def test_accuracy(golden_value):
     np.testing.assert_almost_equal(
@@ -90,6 +96,68 @@ def test_pdf_of_three_samples_converges_at_high_orders(hgh_order, fgh_order):
     s = dixonstat.RangeRatio(3, 1, 1, hgh_order=hgh_order, fgh_order=fgh_order)
 
     assert s.pdf(R) == pytest.approx(expected, rel=CLOSED_FORM_REL_TOL, abs=0.0)
+
+
+DEFAULT_ORDER_CASES = [
+    (10, 1, 1),
+    (10, 2, 3),
+    (30, 1, 1),
+    (30, 2, 3),
+    (100, 1, 1),
+    (100, 2, 3),
+    (300, 1, 1),
+    (300, 2, 3),
+]
+
+
+@pytest.mark.parametrize('size,j,i', DEFAULT_ORDER_CASES)
+def test_default_orders_integrate_density_to_golden_probability(
+    golden_value, size, j, i
+):
+    # The probability between two golden critical values is known exactly.
+    lower = float(golden_value(size, j, i, '0.95'))
+    upper = float(golden_value(size, j, i, '0.995'))
+    x, w = np.polynomial.legendre.leggauss(MASS_QUADRATURE_ORDER)
+    half_width = 0.5 * (upper - lower)
+    nodes = lower + half_width * (x + 1.0)
+    s = dixonstat.RangeRatio(size, j, i)
+
+    mass = half_width * (w @ np.squeeze(s.pdf(nodes)))
+
+    assert mass == pytest.approx(0.995 - 0.95, rel=MASS_REL_TOL, abs=0.0)
+
+
+@pytest.mark.filterwarnings('error')
+def test_default_orders_stay_finite_for_very_large_samples():
+    s = dixonstat.RangeRatio(1000, 1, 1)
+
+    # The exponential in the density peaks at a ratio of 1. Its overflow must not
+    # reach the result, since the weights compensate for it.
+    assert np.isfinite(s.pdf(np.array([0.1, 1.0]))).all()
+
+
+@pytest.mark.parametrize('size,j,i', DEFAULT_ORDER_CASES)
+def test_default_orders_give_golden_probability_from_cdf(golden_value, size, j, i):
+    lower = float(golden_value(size, j, i, '0.95'))
+    upper = float(golden_value(size, j, i, '0.995'))
+    s = dixonstat.RangeRatio(size, j, i)
+
+    mass = s.cdf(upper) - s.cdf(lower)
+
+    assert mass == pytest.approx(0.995 - 0.95, rel=MASS_REL_TOL, abs=0.0)
+
+
+@pytest.mark.parametrize(
+    'keyword,nodes',
+    [('hgh_order', 'xhh'), ('fgh_order', 'xfh'), ('gl_order', 'xgl')],
+)
+def test_explicit_order_overrides_only_that_default(keyword, nodes):
+    default = dixonstat.RangeRatio(30, 1, 1)
+    explicit = dixonstat.RangeRatio(30, 1, 1, **{keyword: 7})
+
+    assert getattr(explicit, nodes).size == 7
+    for other in {'xhh', 'xfh', 'xgl'} - {nodes}:
+        assert getattr(explicit, other).size == getattr(default, other).size
 
 
 def test_pdf_matches_reference_computation():
