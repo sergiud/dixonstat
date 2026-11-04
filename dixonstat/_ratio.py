@@ -43,6 +43,10 @@ def _default_half_range_order(size):
 # Absolute tolerance of a critical value. The default of brentq is 2e-12.
 PPF_XTOL = 1e-14
 
+# Step of the central difference for the density, relative to the distance of a
+# critical value from the ends of the unit interval.
+DENSITY_RELATIVE_STEP = 1e-3
+
 METHODS = ('gauss-kronrod', 'quadrature')
 
 
@@ -219,7 +223,7 @@ class RangeRatio:
 
         return density * factor * self.factor * self.sqrt4_3
 
-    def sf(self, R):
+    def sf(self, R, return_error=False):
         R"""Computes the survival function :math:`1-G(R)` directly.
 
         The tail is integrated by adaptive Gauss-Kronrod cubature without
@@ -230,15 +234,23 @@ class RangeRatio:
         ----------
         R : array_like
             The ratio.
+        return_error : bool
+            Whether to return an estimate of the absolute error as well.
 
         Returns
         -------
-        numpy.ndarray
+        values : numpy.ndarray
             The probability that the statistic exceeds each ratio.
+        errors : numpy.ndarray
+            The estimated absolute errors, only if `return_error` is set.
         """
-        values = [survival(r, self.size, self.j, self.i)[0] for r in np.ravel(R)]
+        results = [survival(r, self.size, self.j, self.i) for r in np.ravel(R)]
+        values = np.reshape([value for value, _ in results], np.shape(R))
 
-        return np.reshape(values, np.shape(R))
+        if not return_error:
+            return values
+
+        return values, np.reshape([error for _, error in results], np.shape(R))
 
     def cdf(self, R, method='gauss-kronrod'):
         R"""The cumulative distribution function.
@@ -303,7 +315,22 @@ class RangeRatio:
             xtol=PPF_XTOL,
         )
 
-    def ppf(self, q, method='gauss-kronrod'):
+    def __ppf_error(self, R):
+        # An error of the tail moves its root by about error / density. The
+        # density follows from a central difference of the tail itself, so that
+        # the estimate does not depend on the quadrature orders.
+        step = DENSITY_RELATIVE_STEP * min(R, 1.0 - R)
+
+        if step <= 0.0:
+            return PPF_XTOL
+
+        upper = survival(R + step, self.size, self.j, self.i)[0]
+        lower = survival(R - step, self.size, self.j, self.i)[0]
+        density = (lower - upper) / (2.0 * step)
+
+        return survival(R, self.size, self.j, self.i)[1] / density + PPF_XTOL
+
+    def ppf(self, q, method='gauss-kronrod', return_error=False):
         R"""Computes percent point function value at the percentile ``q``.
 
         Percent point function (inverse of cdf). The critical values correspond
@@ -319,11 +346,25 @@ class RangeRatio:
             The percentile.
         method : {'gauss-kronrod', 'quadrature'}
             The integration method. See :meth:`cdf`.
+        return_error : bool
+            Whether to return an estimate of the absolute error as well. The
+            estimate propagates the error of the tail through the density as
+            :math:`\delta R\approx\delta G/P(R)` and adds the tolerance of the
+            root finding. It costs three additional integrals per percentile
+            and is not a rigorous bound.
+
+        Returns
+        -------
+        R : float or numpy.ndarray
+            The critical value for each percentile.
+        error : float or numpy.ndarray
+            The estimated absolute error, only if `return_error` is set.
 
         Raises
         ------
         ValueError
-            If `q` lies outside :math:`[0,1)` or `method` is unknown.
+            If `q` lies outside :math:`[0,1)`, `method` is unknown, or
+            `return_error` is set for a method without an error estimate.
         """
         if np.any(q < 0.0):
             raise ValueError('percentile cannot be negative')
@@ -331,7 +372,20 @@ class RangeRatio:
         if np.any(q >= 1.0):
             raise ValueError('percentile cannot be larger than or equal to 1.0')
 
-        return _apply1d(partial(self.__single_ppf, method=method), q)
+        if return_error and method != 'gauss-kronrod':
+            raise ValueError(f"no error estimate for method '{method}'")
+
+        roots = _apply1d(partial(self.__single_ppf, method=method), q)
+
+        if not return_error:
+            return roots
+
+        if np.ndim(roots) == 0:
+            return roots, self.__ppf_error(roots)
+
+        errors = [self.__ppf_error(root) for root in np.ravel(roots)]
+
+        return roots, np.reshape(errors, np.shape(roots))
 
 
 def r10(size, **kwargs):

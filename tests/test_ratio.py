@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from dixonstat._ratio import PPF_XTOL
+from dixonstat._survival import survival
 import dixonstat
 import numpy as np
 import pytest
@@ -33,6 +35,15 @@ MASS_REL_TOL = 2e-11
 # samples.
 PPF_REL_TOL = 1e-12
 SF_REL_TOL = 1e-12
+
+# The error estimates must stay small enough to be useful. They reflect the
+# relative tolerance of the integral, 1e-11, divided by the density.
+PPF_ERROR_LIMIT = 1e-10
+SF_ERROR_LIMIT = 1e-10
+
+# The central difference of the survival function has a truncation error of
+# order step^2 relative to the density, which is 1e-6 for the step in use.
+DENSITY_REL_TOL = 1e-4
 
 
 @pytest.mark.parametrize(
@@ -270,6 +281,82 @@ def test_ppf_rejects_unknown_method():
 def test_cdf_rejects_unknown_method():
     with pytest.raises(ValueError, match="unknown method 'foo', expected one of"):
         dixonstat.r10(10).cdf(0.5, method='foo')
+
+
+@pytest.mark.parametrize(
+    'size,j,i,q',
+    [(3, 1, 1, '0.95'), (10, 1, 2, '0.995'), (30, 2, 3, '0.995'), (100, 2, 3, '0.95')],
+)
+def test_ppf_error_bounds_the_deviation_from_the_golden_value(
+    golden_value, size, j, i, q
+):
+    R, error = dixonstat.RangeRatio(size, j, i).ppf(float(q), return_error=True)
+
+    deviation = abs(R - float(golden_value(size, j, i, q)))
+
+    assert deviation <= error
+    assert error < PPF_ERROR_LIMIT
+
+
+def test_ppf_error_is_the_tail_error_over_the_density():
+    s = dixonstat.r10(10)
+
+    R, error = s.ppf(0.995, return_error=True)
+
+    expected = survival(R, 10, 1, 1)[1] / np.squeeze(s.pdf(R))
+    assert error == pytest.approx(expected + PPF_XTOL, rel=DENSITY_REL_TOL, abs=0.0)
+
+
+def test_ppf_error_stays_inside_the_unit_interval_close_to_one():
+    # A step reaching past 1 would halve the density, whose closed form for three
+    # samples is known.
+    R, error = dixonstat.r10(3).ppf(1.0 - 1e-6, return_error=True)
+    density = 3.0 / np.pi * (2.0 / np.sqrt(3.0)) / (1.0 + (2.0 * R - 1.0) ** 2 / 3.0)
+
+    expected = survival(R, 3, 1, 1)[1] / density + PPF_XTOL
+
+    assert error == pytest.approx(expected, rel=DENSITY_REL_TOL, abs=0.0)
+
+
+def test_ppf_error_of_scalar_is_a_scalar():
+    R, error = dixonstat.r10(10).ppf(0.5, return_error=True)
+
+    assert isinstance(R, float)
+    assert isinstance(error, float)
+
+
+def test_ppf_error_of_array_keeps_the_shape():
+    q = np.array([0.5, 0.95])
+
+    R, error = dixonstat.r10(10).ppf(q, return_error=True)
+
+    assert R.shape == q.shape
+    assert error.shape == q.shape
+    assert np.all(error > 0.0)
+
+
+def test_ppf_error_at_the_lower_end_is_the_solver_tolerance():
+    R, error = dixonstat.r10(10).ppf(0.0, return_error=True)
+
+    assert R == 0.0
+    assert error == PPF_XTOL
+
+
+def test_ppf_rejects_error_for_the_tensor_rule():
+    with pytest.raises(ValueError, match="no error estimate for method 'quadrature'"):
+        dixonstat.r10(10).ppf(0.5, method='quadrature', return_error=True)
+
+
+def test_sf_returns_its_error_estimate():
+    R = np.array([0.2, 0.5])
+    s = dixonstat.r10(10)
+
+    values, errors = s.sf(R, return_error=True)
+
+    np.testing.assert_array_equal(values, s.sf(R))
+    assert errors.shape == R.shape
+    assert np.all(0.0 < errors)
+    assert np.all(errors < SF_ERROR_LIMIT * values)
 
 
 def test_too_few_samples():
