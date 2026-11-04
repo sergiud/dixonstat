@@ -19,6 +19,9 @@ import numpy as np
 import pytest
 import scipy.stats
 
+# A small multiple of the deviation from the closed form, measured as 5e-15.
+CLOSED_FORM_REL_TOL = 64 * np.finfo(float).eps
+
 
 def test_accuracy(golden_value):
     np.testing.assert_almost_equal(
@@ -73,6 +76,20 @@ def test_accuracy(golden_value):
 
     r11 = dixonstat.RangeRatio(7, 1, 2)
     np.testing.assert_approx_equal(r11.ppf(0.9), float(golden_value(7, 1, 2, '0.9')), 6)
+
+
+@pytest.mark.parametrize(
+    'hgh_order,fgh_order',
+    [(48, 124), (68, 62), (68, 124)],
+)
+def test_pdf_of_three_samples_converges_at_high_orders(hgh_order, fgh_order):
+    # The density grows like exp(c t u) along t = u, which amplifies the
+    # outermost quadrature weights as the orders increase.
+    R = 0.97
+    expected = 3.0 / np.pi * (2.0 / np.sqrt(3.0)) / (1.0 + (2.0 * R - 1.0) ** 2 / 3.0)
+    s = dixonstat.RangeRatio(3, 1, 1, hgh_order=hgh_order, fgh_order=fgh_order)
+
+    assert s.pdf(R) == pytest.approx(expected, rel=CLOSED_FORM_REL_TOL, abs=0.0)
 
 
 def test_pdf_matches_reference_computation():

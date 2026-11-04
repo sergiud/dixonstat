@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from scipy.linalg import eigh_tridiagonal
+from scipy.linalg import eigvalsh_tridiagonal
 from scipy.linalg import solve_banded
 from scipy.special import gammaln
 import numpy as np
@@ -87,6 +87,30 @@ def cost_and_jac(i, gamma, g):
     return residual, jac_prev, jac_cur, jac_next
 
 
+def _christoffel_weights(x, alpha, s, zeroth_moment):
+    # The weights from the first components of the eigenvectors are accurate
+    # only relative to the largest weight, so the tiny outermost weights consist
+    # of rounding errors. The Christoffel function 1 / sum_k p_k(x)^2 of the
+    # orthonormal polynomials retains their relative accuracy.
+    previous = np.zeros_like(x)
+    current = np.ones_like(x)
+    total = np.ones_like(x)
+
+    # The polynomials overflow at the outermost nodes of very high orders. Such
+    # a node has a weight below the smallest float64 and ends up with an infinite
+    # or undefined sum.
+    with np.errstate(over='ignore', invalid='ignore'):
+        for k, s_k in enumerate(s):
+            s_prev = s[k - 1] if k > 0 else 0.0
+            previous, current = (
+                current,
+                ((x - alpha[k]) * current - s_prev * previous) / s_k,
+            )
+            total += np.square(current)
+
+    return np.where(np.isnan(total), 0.0, zeroth_moment / total)
+
+
 def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
     # g_m at the boundary keeps its asymptotic estimate, which is poor for small
     # m. Its error decays by more than a factor of 10 per index away from the
@@ -146,11 +170,9 @@ def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
     # Coefficients on the subdiagonal
     s = np.sqrt(beta)
 
-    # Compute the eigenvalues and the eigenvectors. Eigenvectors are already
-    # sorted and normalized.
-    eval, evec = eigh_tridiagonal(alpha, s)
+    eval = eigvalsh_tridiagonal(alpha, s)
 
     # Gaussian weights
-    weights = np.sqrt(np.pi) / 2.0 * np.square(evec[0, :])
+    weights = _christoffel_weights(eval, alpha, s, np.sqrt(np.pi) / 2.0)
 
     return eval, weights

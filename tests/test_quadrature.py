@@ -36,6 +36,10 @@ MOMENT_REL_TOL = 32 * EPS
 NODE_ABS_TOL = 8 * EPS
 WEIGHT_ABS_TOL = 128 * EPS
 
+# The maximum relative deviation of any weight measured against the reference is
+# 9.5e-13 for 17 nodes and 2.2e-13 for 68 nodes.
+WEIGHT_REL_TOL = 2e-12
+
 # The number of Newton iterations for 34 nodes starting from the asymptotic
 # estimate. A linearly converging iteration needs more than twice as many.
 NEWTON_ITERATIONS = 6
@@ -141,6 +145,28 @@ def test_half_hermgauss_matches_reference_rule(n):
     weight_tol = WEIGHT_ABS_TOL * expected_w.max()
     assert x == pytest.approx(expected_x, rel=0.0, abs=node_tol)
     assert w == pytest.approx(expected_w, rel=0.0, abs=weight_tol)
+
+
+@pytest.mark.parametrize('n', [17, 34, 68])
+def test_half_hermgauss_weights_keep_relative_accuracy(n):
+    # Integrands growing like exp(c x^2) amplify the outermost weights, so their
+    # absolute accuracy relative to the largest weight is not sufficient.
+    _, w = half_hermgauss(n)
+
+    _, reference_w = half_hermite_rule(n)
+    expected_w = np.array([float(v) for v in reference_w])
+
+    assert w == pytest.approx(expected_w, rel=WEIGHT_REL_TOL, abs=0.0)
+
+
+@pytest.mark.filterwarnings('error')
+def test_half_hermgauss_weights_underflow_to_zero_at_very_high_orders():
+    _, w = half_hermgauss(1000)
+
+    assert np.all(w >= 0.0)
+    assert w.sum() == pytest.approx(
+        float(half_hermite_moment(0)), rel=MOMENT_REL_TOL, abs=0.0
+    )
 
 
 def test_half_hermgauss_warns_at_the_caller_if_newton_does_not_converge():
