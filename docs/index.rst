@@ -36,6 +36,11 @@ integration can be performed either using a stochastic approach
 Gaussian quadrature. The latter numerical evaluation of the corresponding
 integral is employed by ``dixonstat``.
 
+Conditioning on :math:`x_i` and :math:`x_n` reduces the upper tail of the
+distribution to a two-dimensional integral, which ``dixonstat`` evaluates by
+adaptive Gauss-Kronrod cubature up to a relative tolerance. The density based
+tensor product rule of :cite:t:`McBane2006` remains available.
+
 .. toctree::
    :hidden:
 

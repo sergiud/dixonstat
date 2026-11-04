@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from ._quadrature import half_hermgauss
+from ._survival import survival
 from functools import partial
 from scipy.optimize import brentq
 from scipy.special import gammaln
@@ -37,6 +38,17 @@ MAX_FULL_RANGE_ORDER = 370
 
 def _default_half_range_order(size):
     return BASE_HALF_RANGE_ORDER + round(HALF_RANGE_ORDER_SLOPE * np.sqrt(size))
+
+
+# Absolute tolerance of a critical value. The default of brentq is 2e-12.
+PPF_XTOL = 1e-14
+
+METHODS = ('gauss-kronrod', 'quadrature')
+
+
+def _validate_method(method):
+    if method not in METHODS:
+        raise ValueError(f"unknown method '{method}', expected one of {METHODS}")
 
 
 def _apply1d(func, data):
@@ -65,7 +77,8 @@ class RangeRatio:
     hgh_order : int, optional
         The number of quadrature points for the half-range :math:`[0,\infty)`
         Gauss-Hermite quadrature used to compute probability density. Defaults
-        to :math:`30+6\sqrt{n}` for :math:`n` observations.
+        to :math:`30+6\sqrt{n}` for :math:`n` observations. Quadrature orders
+        affect :meth:`pdf` and ``method='quadrature'`` only.
     fgh_order : int, optional
         The number of quadrature points for the full-range
         :math:`[-\infty,\infty)` Gauss-Hermite quadrature used to compute
@@ -206,7 +219,28 @@ class RangeRatio:
 
         return density * factor * self.factor * self.sqrt4_3
 
-    def cdf(self, R):
+    def sf(self, R):
+        R"""Computes the survival function :math:`1-G(R)` directly.
+
+        The tail is integrated by adaptive Gauss-Kronrod cubature without
+        subtracting from 1, so it keeps its relative accuracy where critical
+        values lie. See :func:`dixonstat._survival.survival` for the formula.
+
+        Parameters
+        ----------
+        R : array_like
+            The ratio.
+
+        Returns
+        -------
+        numpy.ndarray
+            The probability that the statistic exceeds each ratio.
+        """
+        values = [survival(r, self.size, self.j, self.i)[0] for r in np.ravel(R)]
+
+        return np.reshape(values, np.shape(R))
+
+    def cdf(self, R, method='gauss-kronrod'):
         R"""The cumulative distribution function.
 
         The monotonically increasing cumulative distribution function (CDF)
@@ -217,7 +251,26 @@ class RangeRatio:
             G(R) = \int_0^R P(r)\,\mathrm{d}r,
             \quad
             \text{for}~0\leq r\leq 1
+
+        Parameters
+        ----------
+        R : array_like
+            The ratio.
+        method : {'gauss-kronrod', 'quadrature'}
+            ``gauss-kronrod`` subtracts the error controlled :meth:`sf` from 1.
+            ``quadrature`` integrates :meth:`pdf` with the orders of
+            :class:`RangeRatio`. It is much faster and provides no error
+            control.
+
+        Raises
+        ------
+        ValueError
+            If `method` is unknown.
         """
+        _validate_method(method)
+
+        if method == 'gauss-kronrod':
+            return 1.0 - self.sf(R)
 
         # Save the shape such that we can return a tensor of CDF values with
         # the same shape.
@@ -239,13 +292,18 @@ class RangeRatio:
         # Restore the shape of input parameter R.
         return np.reshape(cdf, shape)
 
-    def __ppf_err(self, R, q):
-        return q - self.cdf(R)
+    def __ppf_err(self, R, q, method):
+        return q - self.cdf(R, method=method)
 
-    def __single_ppf(self, q):
-        return brentq(partial(self.__ppf_err, q=q.item()), a=0.0, b=1.0)
+    def __single_ppf(self, q, method):
+        return brentq(
+            partial(self.__ppf_err, q=q.item(), method=method),
+            a=0.0,
+            b=1.0,
+            xtol=PPF_XTOL,
+        )
 
-    def ppf(self, q):
+    def ppf(self, q, method='gauss-kronrod'):
         R"""Computes percent point function value at the percentile ``q``.
 
         Percent point function (inverse of cdf). The critical values correspond
@@ -259,6 +317,13 @@ class RangeRatio:
         ----------
         q
             The percentile.
+        method : {'gauss-kronrod', 'quadrature'}
+            The integration method. See :meth:`cdf`.
+
+        Raises
+        ------
+        ValueError
+            If `q` lies outside :math:`[0,1)` or `method` is unknown.
         """
         if np.any(q < 0.0):
             raise ValueError('percentile cannot be negative')
@@ -266,7 +331,7 @@ class RangeRatio:
         if np.any(q >= 1.0):
             raise ValueError('percentile cannot be larger than or equal to 1.0')
 
-        return _apply1d(self.__single_ppf, q)
+        return _apply1d(partial(self.__single_ppf, method=method), q)
 
 
 def r10(size, **kwargs):

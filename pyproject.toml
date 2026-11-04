@@ -7,7 +7,7 @@ name = "dixonstat"
 dynamic = ["version"]
 description = "Computing the critical values of a Dixon's r statistic"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "Apache-2.0"
 keywords = ["dixon's q test, dixon's r statistic"]
 authors = [
@@ -16,7 +16,6 @@ authors = [
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -26,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     'numpy',
-    'scipy',
+    'scipy>=1.15',
 ]
 
 [project.urls]

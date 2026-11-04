@@ -28,60 +28,11 @@ CLOSED_FORM_REL_TOL = 64 * np.finfo(float).eps
 MASS_QUADRATURE_ORDER = 64
 MASS_REL_TOL = 2e-11
 
-
-def test_accuracy(golden_value):
-    np.testing.assert_almost_equal(
-        dixonstat.r10(5).ppf(0.95), float(golden_value(5, 1, 1, '0.95')), 6
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(5).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(10).ppf(0.95), float(golden_value(10, 1, 1, '0.95')), 5
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(10).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(15).ppf(0.95), float(golden_value(15, 1, 1, '0.95')), 6
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(15).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(20).ppf(0.95), float(golden_value(20, 1, 1, '0.95')), 6
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(20).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(25).ppf(0.95), float(golden_value(25, 1, 1, '0.95')), 6
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(25).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(30).ppf(0.95), float(golden_value(30, 1, 1, '0.95')), 6
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(30).cdf(1.0), 1, 6)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(40).ppf(0.95), float(golden_value(40, 1, 1, '0.95')), 5
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(40).cdf(1.0), 1, 5)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(50).ppf(0.95), float(golden_value(50, 1, 1, '0.95')), 5
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(50).cdf(1.0), 1, 5)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(60).ppf(0.95), float(golden_value(60, 1, 1, '0.95')), 4
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(60).cdf(1.0), 1, 4)
-
-    np.testing.assert_almost_equal(
-        dixonstat.r10(70).ppf(0.95), float(golden_value(70, 1, 1, '0.95')), 4
-    )
-    np.testing.assert_almost_equal(dixonstat.r10(70).cdf(1.0), 1, 4)
-
-    r11 = dixonstat.RangeRatio(7, 1, 2)
-    np.testing.assert_approx_equal(r11.ppf(0.9), float(golden_value(7, 1, 2, '0.9')), 6)
+# Small multiples of the largest deviation from the golden values, 2.7e-13 for
+# the critical values and 3.4e-13 for the tail probabilities, both at 100
+# samples.
+PPF_REL_TOL = 1e-12
+SF_REL_TOL = 1e-12
 
 
 @pytest.mark.parametrize(
@@ -142,7 +93,7 @@ def test_default_orders_give_golden_probability_from_cdf(golden_value, size, j, 
     upper = float(golden_value(size, j, i, '0.995'))
     s = dixonstat.RangeRatio(size, j, i)
 
-    mass = s.cdf(upper) - s.cdf(lower)
+    mass = s.cdf(upper, method='quadrature') - s.cdf(lower, method='quadrature')
 
     assert mass == pytest.approx(0.995 - 0.95, rel=MASS_REL_TOL, abs=0.0)
 
@@ -205,7 +156,9 @@ def test_cdf_matches_reference_computation():
     expected = np.clip(expected, 0.0, 1.0)
     expected = np.reshape(expected, shape)
 
-    np.testing.assert_array_almost_equal_nulp(r.cdf(R), expected, nulp=64)
+    np.testing.assert_array_almost_equal_nulp(
+        r.cdf(R, method='quadrature'), expected, nulp=64
+    )
 
 
 @pytest.mark.parametrize(
@@ -220,14 +173,14 @@ def test_cdf_matches_reference_computation():
     ],
 )
 @pytest.mark.parametrize('size', [5, 10, 20, 30])
-def test_cdf_is_bounded_by_one(ratio, size):
+def test_quadrature_cdf_is_bounded_by_one(ratio, size):
     try:
         s = ratio(size)
     except ValueError:
         pytest.skip('not enough samples for this combination')
 
     r = np.linspace(0.0, 1.0, 201)
-    assert np.max(s.cdf(r)) <= 1.0
+    assert np.max(s.cdf(r, method='quadrature')) <= 1.0
 
 
 @pytest.mark.parametrize(
@@ -253,6 +206,70 @@ def test_failures(ratio):
 
     with pytest.raises(ValueError, match='cannot be larger'):
         ratio(15).ppf(np.array([0.5, 1.0]))
+
+
+def test_ppf_matches_golden_value(golden_entry):
+    s = dixonstat.RangeRatio(golden_entry['size'], golden_entry['j'], golden_entry['i'])
+    expected = float(golden_entry['critical_value'])
+
+    actual = s.ppf(float(golden_entry['q']))
+
+    assert actual == pytest.approx(expected, rel=PPF_REL_TOL, abs=0.0)
+
+
+def test_sf_matches_golden_value(golden_entry):
+    s = dixonstat.RangeRatio(golden_entry['size'], golden_entry['j'], golden_entry['i'])
+    expected = 1.0 - float(golden_entry['q'])
+
+    actual = s.sf(float(golden_entry['critical_value']))
+
+    assert actual == pytest.approx(expected, rel=SF_REL_TOL, abs=0.0)
+
+
+def test_cdf_is_the_complement_of_sf():
+    s = dixonstat.r22(30)
+    R = np.array([0.2, 0.48])
+
+    np.testing.assert_array_equal(s.cdf(R), 1.0 - s.sf(R))
+
+
+def test_sf_keeps_the_shape():
+    R = np.array([[0.2, 0.3], [0.4, 0.5]])
+
+    assert dixonstat.r10(10).sf(R).shape == R.shape
+
+
+@pytest.mark.parametrize('method', ['gauss-kronrod', 'quadrature'])
+def test_ppf_of_array_keeps_the_shape(method):
+    q = np.array([0.5, 0.95])
+    s = dixonstat.r10(10)
+
+    actual = s.ppf(q, method=method)
+
+    assert actual.shape == q.shape
+    assert actual[0] < actual[1]
+
+
+def test_quadrature_cdf_uses_the_tensor_rule():
+    s = dixonstat.r22(100)
+
+    assert s.cdf(0.34, method='quadrature') != s.cdf(0.34)
+
+
+def test_quadrature_ppf_uses_the_tensor_rule():
+    s = dixonstat.r22(100)
+
+    assert s.ppf(0.995, method='quadrature') != s.ppf(0.995)
+
+
+def test_ppf_rejects_unknown_method():
+    with pytest.raises(ValueError, match="unknown method 'foo', expected one of"):
+        dixonstat.r10(10).ppf(0.5, method='foo')
+
+
+def test_cdf_rejects_unknown_method():
+    with pytest.raises(ValueError, match="unknown method 'foo', expected one of"):
+        dixonstat.r10(10).cdf(0.5, method='foo')
 
 
 def test_too_few_samples():

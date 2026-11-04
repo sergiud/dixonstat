@@ -6,7 +6,7 @@ mpmath
 numpy
 pytest>=4.6.5
 pytest-benchmark
-scipy
+scipy>=1.15
 sympy
 
 -r docs/requirements.txt
