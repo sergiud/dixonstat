@@ -20,6 +20,10 @@ from scipy.special import gammaln
 import numpy as np
 import warnings
 
+# Coefficients solved beyond those a rule uses, which keeps the error of the
+# asymptotic boundary value below rounding error for every order.
+NEWTON_GUARD_COEFFICIENTS = 8
+
 
 def alpha0(gamma):
     # Eq. 3.1, evaluated as a single exponential of a log-ratio instead of
@@ -84,12 +88,17 @@ def cost_and_jac(i, gamma, g):
 
 
 def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
-    idxs = np.arange(n)
+    # g_m at the boundary keeps its asymptotic estimate, which is poor for small
+    # m. Its error decays by more than a factor of 10 per index away from the
+    # boundary, so solving for additional coefficients removes it from those the
+    # rule uses.
+    m = n + NEWTON_GUARD_COEFFICIENTS
+    idxs = np.arange(m)
 
     g = estimate_g(idxs, gamma)
 
-    # Refine g_1, ..., g_{n-1} using Newton's method on Eq. 3.14 for
-    # k = 1, ..., n-1. g_0 and the asymptotic estimate of g_n are boundary
+    # Refine g_1, ..., g_{m-1} using Newton's method on Eq. 3.14 for
+    # k = 1, ..., m-1. g_0 and the asymptotic estimate of g_m are boundary
     # values. The Jacobian is tridiagonal and solved via solve_banded in O(n)
     # per iteration. scipy.optimize.root has no banded-Jacobian option, so it
     # would fall back to a dense solve here and slow this down rather than
@@ -98,7 +107,7 @@ def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
     # solve_banded expects the diagonal ordered form ab[u + r - c, c] = J[r, c].
     # Row 0 holds the superdiagonal shifted right by one, row 2 the subdiagonal
     # shifted left by one.
-    ab = np.zeros((3, n - 1))
+    ab = np.zeros((3, m - 1))
 
     for _ in range(n_iter):
         residual, jac_prev, jac_cur, jac_next = cost_and_jac(idxs, gamma, g)
@@ -124,11 +133,11 @@ def half_hermgauss(n, gamma=0.0, rtol=1e-8, n_iter=100):
         )
 
     # Evaluate the recurrence formula
-    alpha = np.empty_like(g[1:-1])
+    alpha = np.empty(n)
 
     alpha[0] = alpha0(gamma)
 
-    idxs1 = idxs[1:]
+    idxs1 = idxs[1:n]
     # Eq. 3.2
     alpha[1:] = np.sqrt((2 * idxs1 + gamma + 1.0) / 3.0 - g[idxs1 + 1] - g[idxs1])
     # Eq. 3.3

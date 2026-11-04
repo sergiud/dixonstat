@@ -117,17 +117,19 @@ def test_exp_minus_10x(n_iter):
 
 
 @pytest.mark.filterwarnings('error')
-@pytest.mark.parametrize('n', [8, 17, 34, 68])
+@pytest.mark.parametrize('n', [1, 2, 3, 8, 17, 34, 68])
 def test_half_hermgauss_integrates_low_moments(n):
     x, w = half_hermgauss(n)
 
-    exact = [float(half_hermite_moment(k)) for k in range(LOW_MOMENTS)]
-    computed = [w @ x**k for k in range(LOW_MOMENTS)]
+    # A rule of order n is exact up to degree 2n - 1.
+    moments = range(min(LOW_MOMENTS, 2 * n))
+    exact = [float(half_hermite_moment(k)) for k in moments]
+    computed = [w @ x**k for k in moments]
 
     assert computed == pytest.approx(exact, rel=MOMENT_REL_TOL, abs=0.0)
 
 
-@pytest.mark.parametrize('n', [34, 68])
+@pytest.mark.parametrize('n', [1, 2, 3, 8, 17, 34, 68])
 def test_half_hermgauss_matches_reference_rule(n):
     x, w = half_hermgauss(n)
 
