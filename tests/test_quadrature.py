@@ -36,6 +36,11 @@ MOMENT_REL_TOL = 32 * EPS
 NODE_ABS_TOL = 8 * EPS
 WEIGHT_ABS_TOL = 128 * EPS
 
+# The rounding errors of the weights accumulate with the order and the eigenvalue
+# solver determines how they add up. The deviation of the zeroth moment varies
+# erratically from order to order and reaches 122 eps between 800 and 1200 nodes.
+HIGH_ORDER_MOMENT_REL_TOL = 256 * EPS
+
 # The maximum relative deviation of any weight measured against the reference is
 # 9.5e-13 for 17 nodes and 2.2e-13 for 68 nodes.
 WEIGHT_REL_TOL = 2e-12
@@ -160,12 +165,13 @@ def test_half_hermgauss_weights_keep_relative_accuracy(n):
 
 
 @pytest.mark.filterwarnings('error')
-def test_half_hermgauss_weights_underflow_to_zero_at_very_high_orders():
-    _, w = half_hermgauss(1000)
+@pytest.mark.parametrize('n', [1000, 1127])
+def test_half_hermgauss_weights_underflow_to_zero_at_very_high_orders(n):
+    _, w = half_hermgauss(n)
 
     assert np.all(w >= 0.0)
     assert w.sum() == pytest.approx(
-        float(half_hermite_moment(0)), rel=MOMENT_REL_TOL, abs=0.0
+        float(half_hermite_moment(0)), rel=HIGH_ORDER_MOMENT_REL_TOL, abs=0.0
     )
 
 
