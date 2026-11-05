@@ -1,20 +1,28 @@
 default:
   tags:
     - docker
-  image: alpine
+  image: python:3.15-alpine
 
 before_script:
-  - apk add
-    curl
-    py3-coverage
-    py3-mpmath
-    py3-numpy
-    py3-pytest
-    py3-pytest-benchmark
-    py3-scipy
-    py3-sympy
+  - pip install
+    coverage
+    mpmath
+    numpy
+    pytest
+    pytest-benchmark
+    scipy
+    sympy
 
 test:
+  image: python:${PYTHON_VERSION}-alpine
+  parallel:
+    matrix:
+      - PYTHON_VERSION:
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+          - '3.15'
   script:
     - coverage run -m pytest --junitxml pytest.xml
     - coverage combine
@@ -31,6 +39,7 @@ test:
 
 benchmark:
   script:
+    - apk add curl
     - python3 -m pytest --benchmark-only --benchmark-json=benchmark.json
     - >
       curl --silent --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}"

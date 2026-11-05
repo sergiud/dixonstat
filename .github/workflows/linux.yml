@@ -9,10 +9,11 @@ jobs:
     strategy:
       matrix:
         python:
-          - '3.10'
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
+          - '3.15'
 
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +62,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
+          python-version: '3.15'
           cache: 'pip'
           cache-dependency-path: requirements.txt
 
